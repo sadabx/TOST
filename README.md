@@ -137,13 +137,13 @@ Use Windows with the .NET 8 SDK. The repository pins Velopack `vpk` as a local
 Create setup, portable, package, and update-feed assets:
 
 ```powershell
-.\build-release.ps1 -Version 0.3.0
+.\build-release.ps1 -Version 1.0.0
 ```
 
 For the first Velopack release, or when no previous feed exists:
 
 ```powershell
-.\build-release.ps1 -Version 0.3.0 -SkipPreviousRelease
+.\build-release.ps1 -Version 1.0.0 -SkipPreviousRelease
 ```
 
 Output is written to `Releases\`. Upload every generated file together; the
@@ -153,7 +153,7 @@ To create and publish a stable GitHub release automatically:
 
 ```powershell
 $env:GITHUB_TOKEN = "token-with-releases-write-access"
-.\publish-release.ps1 -Version 0.3.0
+.\publish-release.ps1 -Version 1.0.0
 ```
 
 For later versions, run `build-release.ps1` without
