@@ -11,13 +11,43 @@ namespace Trionine.TOST;
 
 internal static class Program
 {
+    private const string InstanceMutexName = @"Local\Trionine.TOST.Instance";
+    private const string ActivationEventName = @"Local\Trionine.TOST.Activate";
+
     [STAThread]
     private static void Main()
     {
         VelopackApp.Build().Run();
+
+        using var activationEvent = new EventWaitHandle(
+            initialState: false,
+            EventResetMode.AutoReset,
+            ActivationEventName);
+        using var instanceMutex = new Mutex(
+            initiallyOwned: true,
+            InstanceMutexName,
+            out var isFirstInstance);
+
+        if (!isFirstInstance)
+        {
+            activationEvent.Set();
+            return;
+        }
+
         AppPaths.Initialize();
         ApplicationConfiguration.Initialize();
-        Application.Run(new FloatingInstallerForm());
+        using var form = new FloatingInstallerForm();
+        _ = form.Handle;
+
+        var activationRegistration = ThreadPool.RegisterWaitForSingleObject(
+            activationEvent,
+            (_, _) => form.ActivateExistingInstance(),
+            state: null,
+            Timeout.Infinite,
+            executeOnlyOnce: false);
+
+        Application.Run(form);
+        activationRegistration.Unregister(null);
     }
 }
 
@@ -72,7 +102,7 @@ internal sealed class FloatingInstallerForm : Form
         glyph.DragEnter += OnDragEnter;
         glyph.DragLeave += OnDragLeave;
         glyph.DragDrop += OnDragDrop;
-        glyph.DoubleClick += (_, _) => LaunchSteam();
+        glyph.DoubleClick += (_, _) => RestartSteam();
 
         EnableWindowDrag(this);
         EnableWindowDrag(glyph);
@@ -109,7 +139,6 @@ internal sealed class FloatingInstallerForm : Form
         menu.Items.Add(CreateMenuItem("Restart Steam", "\uE72C", (_, _) => RestartSteam()));
         menu.Items.Add(CreateSeparator());
         menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
-        menu.Items.Add(CreateMenuItem("Select Local Package", "\uE8E5", (_, _) => SelectLocalPackage()));
         menu.Items.Add(CreateMenuItem("Open Official Releases", "\uE774", (_, _) => OpenOfficialReleases()));
         menu.Items.Add(CreateMenuItem("Open ManifestHub", "\uE774", (_, _) => OpenManifestHub()));
         menu.Items.Add(CreateMenuItem("Check for TOST Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
@@ -137,7 +166,6 @@ internal sealed class FloatingInstallerForm : Form
         var menu = CreateDarkMenu();
         menu.Items.Add(CreateMenuItem("Show Floating Window", "\uE890", (_, _) => ShowFloatingWindow()));
         menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
-        menu.Items.Add(CreateMenuItem("Select Local Package", "\uE8E5", (_, _) => SelectLocalPackage()));
         menu.Items.Add(CreateMenuItem("Check for TOST Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
         menu.Items.Add(CreateSeparator());
         menu.Items.Add(CreateMenuItem("Exit", "\uE7E8", (_, _) => Close()));
@@ -725,6 +753,30 @@ internal sealed class FloatingInstallerForm : Form
             WorkingDirectory = settings.SteamRoot,
             UseShellExecute = true
         });
+    }
+
+    internal void ActivateExistingInstance()
+    {
+        if (IsDisposed || Disposing)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            try
+            {
+                BeginInvoke(new Action(ActivateExistingInstance));
+            }
+            catch (InvalidOperationException)
+            {
+                // The primary instance is already shutting down.
+            }
+
+            return;
+        }
+
+        ShowFloatingWindow();
     }
 
     private void ShowFloatingWindow()

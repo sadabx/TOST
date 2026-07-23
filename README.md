@@ -27,7 +27,7 @@ or endorsed by OpenSteamTool, Valve, or Steam.
 
 TOST does not bundle or silently download third-party OpenSteamTool files.
 Download payloads only from sources you trust, then drag them onto TOST or use
-`Select Local Package`.
+`Install / Repair OpenSteamTool`.
 
 ## Requirements
 
@@ -50,16 +50,16 @@ single standalone executable.
 
 ## Usage
 
-Right-click the floating icon to open its menu. Double-click it to launch Steam.
-If the floating window is hidden, double-click the TOST system tray icon to
-restore it.
+Right-click the floating icon to open its menu. Double-click it to restart
+Steam. If the floating window is hidden, double-click the TOST system tray icon
+to restore it.
 
 ### Install or repair
 
-`Install / Repair OpenSteamTool` and `Select Local Package` open a local package
-picker. TOST accepts ZIP, DLL, and TOML files that you downloaded separately.
-ZIP archives are inspected without broadly extracting their contents, and only
-recognized files are copied.
+`Install / Repair OpenSteamTool` opens a local package picker. TOST accepts ZIP,
+DLL, and TOML files that you downloaded separately. ZIP archives are inspected
+without broadly extracting their contents, and only recognized files are
+copied.
 
 ### Drag and drop
 
@@ -88,7 +88,6 @@ Steam is detected from
 - `Launch Steam`
 - `Restart Steam`
 - `Install / Repair OpenSteamTool`
-- `Select Local Package`
 - `Open Official Releases`
 - `Open ManifestHub`
 - `Check for TOST Updates`
@@ -137,13 +136,13 @@ Use Windows with the .NET 8 SDK. The repository pins Velopack `vpk` as a local
 Create setup, portable, package, and update-feed assets:
 
 ```powershell
-.\build-release.ps1 -Version 1.0.0
+.\build-release.ps1 -Version 1.0.1
 ```
 
 For the first Velopack release, or when no previous feed exists:
 
 ```powershell
-.\build-release.ps1 -Version 1.0.0 -SkipPreviousRelease
+.\build-release.ps1 -Version 1.0.1 -SkipPreviousRelease
 ```
 
 Output is written to `Releases\`. Upload every generated file together; the
@@ -153,7 +152,7 @@ To create and publish a stable GitHub release automatically:
 
 ```powershell
 $env:GITHUB_TOKEN = "token-with-releases-write-access"
-.\publish-release.ps1 -Version 1.0.0
+.\publish-release.ps1 -Version 1.0.1
 ```
 
 For later versions, run `build-release.ps1` without
