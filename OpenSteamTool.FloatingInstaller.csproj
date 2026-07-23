@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <None Include="Assets\opensteamtool.ico" Pack="true" PackagePath="\" />
+    <EmbeddedResource Include="Assets\logo-128.png" LogicalName="OST.Assets.logo-128.png" />
     <Content Include="Assets\logo-128.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\logo-512.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="files\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

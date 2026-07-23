@@ -5,3 +5,5 @@ package/
 logs/
 installer-settings.json
 OST-Floating-Installer.zip
+st/
+analysis/
