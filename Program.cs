@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
+using System.IO.Compression;
 using System.Text.Json;
 using Microsoft.Win32;
 
@@ -17,6 +18,9 @@ internal static class Program
 
 internal sealed class FloatingInstallerForm : Form
 {
+    private const string UpstreamReleasesUrl = "https://github.com/OpenSteam001/OpenSteamTool/releases";
+    private const long MaxArchiveEntryBytes = 256L * 1024 * 1024;
+    private const long MaxArchivePayloadBytes = 512L * 1024 * 1024;
     private static readonly string? SymbolFontFamilyName = FindSymbolFontFamily();
     private readonly InstallerSettings settings;
     private readonly InstallerLogger logger;
@@ -91,7 +95,9 @@ internal sealed class FloatingInstallerForm : Form
         menu.Items.Add(CreateMenuItem("Launch Steam", "\uE768", (_, _) => LaunchSteam()));
         menu.Items.Add(CreateMenuItem("Restart Steam", "\uE72C", (_, _) => RestartSteam()));
         menu.Items.Add(CreateSeparator());
-        menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallBundledFiles()));
+        menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
+        menu.Items.Add(CreateMenuItem("Select Local Package", "\uE8E5", (_, _) => SelectLocalPackage()));
+        menu.Items.Add(CreateMenuItem("Open Official Releases", "\uE774", (_, _) => OpenOfficialReleases()));
 
         var folders = CreateMenuItem("Open Steam Folder", "\uE8B7");
         folders.DropDownItems.Add(CreateMenuItem("Steam Folder", "\uE8B7", (_, _) => OpenFolder(settings.SteamRoot), 184));
@@ -115,7 +121,8 @@ internal sealed class FloatingInstallerForm : Form
     {
         var menu = CreateDarkMenu();
         menu.Items.Add(CreateMenuItem("Show Floating Window", "\uE890", (_, _) => ShowFloatingWindow()));
-        menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallBundledFiles()));
+        menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
+        menu.Items.Add(CreateMenuItem("Select Local Package", "\uE8E5", (_, _) => SelectLocalPackage()));
         menu.Items.Add(CreateSeparator());
         menu.Items.Add(CreateMenuItem("Exit", "\uE7E8", (_, _) => Close()));
         return menu;
@@ -274,7 +281,7 @@ internal sealed class FloatingInstallerForm : Form
         activeToast.Show(this);
     }
 
-    private void InstallBundledFiles()
+    private void InstallOrRepair()
     {
         var bundledDirectory = settings.BundledFilesPath;
         var report = new CopyReport();
@@ -282,8 +289,7 @@ internal sealed class FloatingInstallerForm : Form
         EnsureSteamFolders(report);
         if (!Directory.Exists(bundledDirectory))
         {
-            report.AddFailure(bundledDirectory, "Bundled files folder was not found.");
-            ShowReport(report);
+            PromptForLocalPackage();
             return;
         }
 
@@ -298,7 +304,153 @@ internal sealed class FloatingInstallerForm : Form
             CopyExpectedPath(file, report);
         }
 
+        if (report.Successes == 0)
+        {
+            PromptForLocalPackage();
+            return;
+        }
+
         ShowReport(report);
+    }
+
+    private void PromptForLocalPackage()
+    {
+        var result = MessageBox.Show(
+            "No local OpenSteamTool package was found.\n\nSelect a package that you downloaded yourself?",
+            "OST",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Information);
+
+        if (result == DialogResult.Yes)
+        {
+            SelectLocalPackage();
+        }
+    }
+
+    private void SelectLocalPackage()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "Select a local OpenSteamTool package",
+            Filter = "Supported packages (*.zip;*.dll;*.toml)|*.zip;*.dll;*.toml|ZIP archives (*.zip)|*.zip|OpenSteamTool files (*.dll;*.toml)|*.dll;*.toml|All files (*.*)|*.*",
+            Multiselect = true,
+            CheckFileExists = true
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        var report = new CopyReport();
+        EnsureSteamFolders(report);
+
+        foreach (var path in dialog.FileNames)
+        {
+            if (Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                InstallFromZip(path, report);
+            }
+            else
+            {
+                CopyExpectedPath(path, report);
+            }
+        }
+
+        ShowReport(report);
+    }
+
+    private void InstallFromZip(string archivePath, CopyReport report)
+    {
+        try
+        {
+            using var archive = ZipFile.OpenRead(archivePath);
+            var recognizedEntries = archive.Entries
+                .Where(entry => !string.IsNullOrEmpty(entry.Name) && ResolveDestination(entry.Name) is not null)
+                .ToList();
+
+            if (recognizedEntries.Count == 0)
+            {
+                report.AddFailure(Path.GetFileName(archivePath), "Archive contains no supported files.");
+                return;
+            }
+
+            var duplicateNames = recognizedEntries
+                .GroupBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+                .ToList();
+            if (duplicateNames.Count > 0)
+            {
+                report.AddFailure(
+                    Path.GetFileName(archivePath),
+                    $"Archive contains duplicate supported files: {string.Join(", ", duplicateNames)}");
+                return;
+            }
+
+            if (recognizedEntries.Any(entry => entry.Length > MaxArchiveEntryBytes) ||
+                recognizedEntries.Sum(entry => entry.Length) > MaxArchivePayloadBytes)
+            {
+                report.AddFailure(Path.GetFileName(archivePath), "Archive payload is larger than the supported limit.");
+                return;
+            }
+
+            foreach (var entry in recognizedEntries)
+            {
+                var destinationDirectory = ResolveDestination(entry.Name)!;
+                CopyArchiveEntry(entry, destinationDirectory, report);
+            }
+        }
+        catch (InvalidDataException ex)
+        {
+            report.AddFailure(Path.GetFileName(archivePath), $"Invalid ZIP archive: {ex.Message}");
+            logger.Error($"Could not read ZIP archive {archivePath}: {ex}");
+        }
+        catch (Exception ex)
+        {
+            report.AddFailure(Path.GetFileName(archivePath), ex.Message);
+            logger.Error($"Could not install ZIP archive {archivePath}: {ex}");
+        }
+    }
+
+    private void CopyArchiveEntry(ZipArchiveEntry entry, string destinationDirectory, CopyReport report)
+    {
+        try
+        {
+            Directory.CreateDirectory(destinationDirectory);
+            var destinationPath = Path.Combine(destinationDirectory, entry.Name);
+            if (settings.BackupBeforeOverwrite && File.Exists(destinationPath))
+            {
+                var backupPath = destinationPath + ".bak-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                File.Copy(destinationPath, backupPath, overwrite: false);
+                logger.Info($"Backed up {destinationPath} -> {backupPath}");
+            }
+
+            using var source = entry.Open();
+            using var destination = new FileStream(
+                destinationPath,
+                settings.OverwriteExisting ? FileMode.Create : FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None);
+            source.CopyTo(destination);
+
+            report.AddSuccess(entry.Name, destinationDirectory);
+            logger.Info($"Copied ZIP entry {entry.FullName} -> {destinationPath}");
+        }
+        catch (Exception ex)
+        {
+            report.AddFailure(entry.Name, ex.Message);
+            logger.Error($"Failed to copy ZIP entry {entry.FullName}: {ex}");
+        }
+    }
+
+    private static void OpenOfficialReleases()
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = UpstreamReleasesUrl,
+            UseShellExecute = true
+        });
     }
 
     private void EnsureSteamFolders(CopyReport report)

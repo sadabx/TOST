@@ -1,4 +1,4 @@
-# OST Floating Installer
+# OST  Installer
 
 Small Windows helper app for installing expected OpenSteamTool files through a
 floating desktop icon.
