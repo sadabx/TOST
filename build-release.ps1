@@ -2,7 +2,7 @@
 param(
     [Parameter()]
     [ValidatePattern("^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$")]
-    [string]$Version = "1.0.1",
+    [string]$Version = "1.0.2",
 
     [Parameter()]
     [switch]$SkipPreviousRelease
@@ -13,7 +13,7 @@ $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Project = Join-Path $ProjectRoot "TOST.csproj"
 $PublishDir = Join-Path $ProjectRoot "artifacts\publish\win-x64"
 $ReleaseDir = Join-Path $ProjectRoot "Releases"
-$RepositoryUrl = "https://github.com/sadabx/OST"
+$RepositoryUrl = "https://github.com/sadabx/TOST"
 
 function Assert-LastExitCode([string]$Step) {
     if ($LASTEXITCODE -ne 0) {

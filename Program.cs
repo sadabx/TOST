@@ -54,7 +54,7 @@ internal static class Program
 internal sealed class FloatingInstallerForm : Form
 {
     private const string UpstreamReleasesUrl = "https://github.com/OpenSteam001/OpenSteamTool/releases";
-    private const string TostRepositoryUrl = "https://github.com/sadabx/OST";
+    private const string TostUpdateUrl = "https://github.com/sadabx/TOST/releases/latest/download";
     private const string ManifestHubUrl = "https://manifesthub.trionine.com/";
     private const long MaxArchiveEntryBytes = 256L * 1024 * 1024;
     private const long MaxArchivePayloadBytes = 512L * 1024 * 1024;
@@ -139,9 +139,8 @@ internal sealed class FloatingInstallerForm : Form
         menu.Items.Add(CreateMenuItem("Restart Steam", "\uE72C", (_, _) => RestartSteam()));
         menu.Items.Add(CreateSeparator());
         menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
-        menu.Items.Add(CreateMenuItem("Open Official Releases", "\uE774", (_, _) => OpenOfficialReleases()));
+        menu.Items.Add(CreateMenuItem("View OpenSteamTool Releases", "\uE774", (_, _) => OpenOfficialReleases()));
         menu.Items.Add(CreateMenuItem("Open ManifestHub", "\uE774", (_, _) => OpenManifestHub()));
-        menu.Items.Add(CreateMenuItem("Check for TOST Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
 
         var folders = CreateMenuItem("Open Steam Folder", "\uE8B7");
         folders.DropDownItems.Add(CreateMenuItem("Steam Folder", "\uE8B7", (_, _) => OpenFolder(settings.SteamRoot), 184));
@@ -152,9 +151,10 @@ internal sealed class FloatingInstallerForm : Form
         menu.Items.Add(folders);
 
         menu.Items.Add(CreateSeparator());
+        menu.Items.Add(CreateMenuItem("TOST Settings", "\uE713", (_, _) => OpenSettings()));
+        menu.Items.Add(CreateMenuItem("Check for Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
         menu.Items.Add(CreateMenuItem("Open Logs", "\uE9D9", (_, _) => OpenFolder(settings.LogDirectory)));
-        menu.Items.Add(CreateMenuItem("Floating Window Settings", "\uE713", (_, _) => OpenSettings()));
-        menu.Items.Add(CreateMenuItem("Hide Floating Window", "\uED1A", (_, _) => Hide()));
+        menu.Items.Add(CreateMenuItem("Hide Floating Icon", "\uED1A", (_, _) => Hide()));
         menu.Items.Add(CreateSeparator());
         menu.Items.Add(CreateMenuItem("Exit", "\uE7E8", (_, _) => Close()));
         StyleDropDowns(menu.Items);
@@ -164,9 +164,9 @@ internal sealed class FloatingInstallerForm : Form
     private ContextMenuStrip BuildTrayMenu()
     {
         var menu = CreateDarkMenu();
-        menu.Items.Add(CreateMenuItem("Show Floating Window", "\uE890", (_, _) => ShowFloatingWindow()));
+        menu.Items.Add(CreateMenuItem("Show Floating Icon", "\uE890", (_, _) => ShowFloatingWindow()));
         menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
-        menu.Items.Add(CreateMenuItem("Check for TOST Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
+        menu.Items.Add(CreateMenuItem("Check for Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
         menu.Items.Add(CreateSeparator());
         menu.Items.Add(CreateMenuItem("Exit", "\uE7E8", (_, _) => Close()));
         return menu;
@@ -461,7 +461,7 @@ internal sealed class FloatingInstallerForm : Form
     {
         try
         {
-            var source = new GithubSource(TostRepositoryUrl, accessToken: null, prerelease: false);
+            var source = new SimpleWebSource(TostUpdateUrl);
             var manager = new UpdateManager(source);
             settings.LastUpdateCheckUtc = DateTime.UtcNow;
             settings.Save();

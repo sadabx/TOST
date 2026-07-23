@@ -8,7 +8,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ReleaseDir = Join-Path $ProjectRoot "Releases"
-$RepositoryUrl = "https://github.com/sadabx/OST"
+$RepositoryUrl = "https://github.com/sadabx/TOST"
 
 if (-not $env:GITHUB_TOKEN) {
     throw "Set GITHUB_TOKEN to a token with Releases write access before publishing."

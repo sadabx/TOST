@@ -1,9 +1,8 @@
 # TOST
-
-**A Trionine floating installer for OpenSteamTool.**
+**trionine open-sourced installer for OpenSteamTool**
 
 TOST is an independent Windows utility created and maintained by
-[Sadabx](https://github.com/sadabx) under the Trionine name. It provides a
+[sadabx](https://github.com/sadabx). It provides a
 floating desktop icon for routing supported OpenSteamTool files into the
 correct Steam directories.
 
@@ -40,7 +39,7 @@ Both distributions are self-contained. Users do not need to install .NET.
 ## Download
 
 The recommended download is the `*-Setup.exe` asset on the
-[TOST Releases](https://github.com/sadabx/OST/releases) page. It installs TOST
+[TOST Releases](https://github.com/sadabx/TOST/releases) page. It installs TOST
 for the current Windows user and enables in-place updates.
 
 The `*-Portable.zip` asset is for users who prefer no installation. Extract the
@@ -88,13 +87,13 @@ Steam is detected from
 - `Launch Steam`
 - `Restart Steam`
 - `Install / Repair OpenSteamTool`
-- `Open Official Releases`
+- `View OpenSteamTool Releases`
 - `Open ManifestHub`
-- `Check for TOST Updates`
 - `Open Steam Folder`
+- `TOST Settings`
+- `Check for Updates`
 - `Open Logs`
-- `Floating Window Settings`
-- `Hide Floating Window`
+- `Hide Floating Icon`
 - `Exit`
 
 ## Settings and updates
@@ -109,7 +108,7 @@ Portable builds store them beside `TOST.exe`. On first launch, TOST copies
 compatible settings and logs from the previous OST locations when possible.
 
 Installed builds check
-[TOST GitHub Releases](https://github.com/sadabx/OST/releases) at most once
+[TOST GitHub Releases](https://github.com/sadabx/TOST/releases) at most once
 every 24 hours. Automatic checks can be disabled in Settings. Portable and raw
 development builds can check the release page but do not modify themselves in
 place.
@@ -136,13 +135,13 @@ Use Windows with the .NET 8 SDK. The repository pins Velopack `vpk` as a local
 Create setup, portable, package, and update-feed assets:
 
 ```powershell
-.\build-release.ps1 -Version 1.0.1
+.\build-release.ps1 -Version 1.0.2
 ```
 
 For the first Velopack release, or when no previous feed exists:
 
 ```powershell
-.\build-release.ps1 -Version 1.0.1 -SkipPreviousRelease
+.\build-release.ps1 -Version 1.0.2 -SkipPreviousRelease
 ```
 
 Output is written to `Releases\`. Upload every generated file together; the
@@ -152,7 +151,7 @@ To create and publish a stable GitHub release automatically:
 
 ```powershell
 $env:GITHUB_TOKEN = "token-with-releases-write-access"
-.\publish-release.ps1 -Version 1.0.1
+.\publish-release.ps1 -Version 1.0.2
 ```
 
 For later versions, run `build-release.ps1` without
