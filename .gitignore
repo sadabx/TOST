@@ -1,0 +1,7 @@
+bin/
+obj/
+publish/
+package/
+logs/
+installer-settings.json
+OST-Floating-Installer.zip
