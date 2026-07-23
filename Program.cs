@@ -3,14 +3,19 @@ using System.Drawing.Drawing2D;
 using System.IO.Compression;
 using System.Text.Json;
 using Microsoft.Win32;
+using Velopack;
+using Velopack.Locators;
+using Velopack.Sources;
 
-namespace OpenSteamTool.FloatingInstaller;
+namespace Trionine.TOST;
 
 internal static class Program
 {
     [STAThread]
     private static void Main()
     {
+        VelopackApp.Build().Run();
+        AppPaths.Initialize();
         ApplicationConfiguration.Initialize();
         Application.Run(new FloatingInstallerForm());
     }
@@ -19,6 +24,8 @@ internal static class Program
 internal sealed class FloatingInstallerForm : Form
 {
     private const string UpstreamReleasesUrl = "https://github.com/OpenSteam001/OpenSteamTool/releases";
+    private const string TostRepositoryUrl = "https://github.com/sadabx/OST";
+    private const string ManifestHubUrl = "https://manifesthub.trionine.com/";
     private const long MaxArchiveEntryBytes = 256L * 1024 * 1024;
     private const long MaxArchivePayloadBytes = 512L * 1024 * 1024;
     private static readonly string? SymbolFontFamilyName = FindSymbolFontFamily();
@@ -34,7 +41,7 @@ internal sealed class FloatingInstallerForm : Form
         settings = InstallerSettings.Load();
         logger = new InstallerLogger(settings.LogPath);
 
-        Text = "OpenSteamTool Installer";
+        Text = "TOST";
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
@@ -57,7 +64,7 @@ internal sealed class FloatingInstallerForm : Form
         glyph.ContextMenuStrip = ContextMenuStrip;
         Controls.Add(glyph);
 
-        toolTip.SetToolTip(glyph, "OST");
+        toolTip.SetToolTip(glyph, "TOST");
 
         DragEnter += OnDragEnter;
         DragLeave += OnDragLeave;
@@ -73,20 +80,26 @@ internal sealed class FloatingInstallerForm : Form
         trayIcon = new NotifyIcon
         {
             Icon = Icon ?? SystemIcons.Application,
-            Text = "OST",
+            Text = "TOST",
             Visible = true,
             ContextMenuStrip = BuildTrayMenu()
         };
         trayIcon.DoubleClick += (_, _) => ShowFloatingWindow();
 
-        Shown += (_, _) =>
+        Shown += async (_, _) =>
         {
             EnsureVisibleOnScreen();
             BringToFront();
             Activate();
+            SetStartupRegistration(settings.StartWithWindows);
+
+            if (settings.ShouldCheckForUpdates())
+            {
+                await CheckForUpdatesAsync(silentWhenCurrent: true);
+            }
         };
 
-        logger.Info("Floating installer started.");
+        logger.Info($"TOST started in {(AppPaths.IsPortable ? "portable" : "installed")} mode.");
     }
 
     private ContextMenuStrip BuildMenu()
@@ -98,6 +111,8 @@ internal sealed class FloatingInstallerForm : Form
         menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
         menu.Items.Add(CreateMenuItem("Select Local Package", "\uE8E5", (_, _) => SelectLocalPackage()));
         menu.Items.Add(CreateMenuItem("Open Official Releases", "\uE774", (_, _) => OpenOfficialReleases()));
+        menu.Items.Add(CreateMenuItem("Open ManifestHub", "\uE774", (_, _) => OpenManifestHub()));
+        menu.Items.Add(CreateMenuItem("Check for TOST Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
 
         var folders = CreateMenuItem("Open Steam Folder", "\uE8B7");
         folders.DropDownItems.Add(CreateMenuItem("Steam Folder", "\uE8B7", (_, _) => OpenFolder(settings.SteamRoot), 184));
@@ -123,6 +138,7 @@ internal sealed class FloatingInstallerForm : Form
         menu.Items.Add(CreateMenuItem("Show Floating Window", "\uE890", (_, _) => ShowFloatingWindow()));
         menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
         menu.Items.Add(CreateMenuItem("Select Local Package", "\uE8E5", (_, _) => SelectLocalPackage()));
+        menu.Items.Add(CreateMenuItem("Check for TOST Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
         menu.Items.Add(CreateSeparator());
         menu.Items.Add(CreateMenuItem("Exit", "\uE7E8", (_, _) => Close()));
         return menu;
@@ -283,48 +299,7 @@ internal sealed class FloatingInstallerForm : Form
 
     private void InstallOrRepair()
     {
-        var bundledDirectory = settings.BundledFilesPath;
-        var report = new CopyReport();
-
-        EnsureSteamFolders(report);
-        if (!Directory.Exists(bundledDirectory))
-        {
-            PromptForLocalPackage();
-            return;
-        }
-
-        foreach (var file in Directory.EnumerateFiles(bundledDirectory, "*", SearchOption.AllDirectories))
-        {
-            if (ResolveDestination(Path.GetFileName(file)) is null)
-            {
-                logger.Info($"Ignored bundled file with no route: {file}");
-                continue;
-            }
-
-            CopyExpectedPath(file, report);
-        }
-
-        if (report.Successes == 0)
-        {
-            PromptForLocalPackage();
-            return;
-        }
-
-        ShowReport(report);
-    }
-
-    private void PromptForLocalPackage()
-    {
-        var result = MessageBox.Show(
-            "No local OpenSteamTool package was found.\n\nSelect a package that you downloaded yourself?",
-            "OST",
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Information);
-
-        if (result == DialogResult.Yes)
-        {
-            SelectLocalPackage();
-        }
+        SelectLocalPackage();
     }
 
     private void SelectLocalPackage()
@@ -446,9 +421,92 @@ internal sealed class FloatingInstallerForm : Form
 
     private static void OpenOfficialReleases()
     {
+        OpenWebsite(UpstreamReleasesUrl);
+    }
+
+    private static void OpenManifestHub()
+    {
+        OpenWebsite(ManifestHubUrl);
+    }
+
+    private async Task CheckForUpdatesAsync(bool silentWhenCurrent)
+    {
+        try
+        {
+            var source = new GithubSource(TostRepositoryUrl, accessToken: null, prerelease: false);
+            var manager = new UpdateManager(source);
+            settings.LastUpdateCheckUtc = DateTime.UtcNow;
+            settings.Save();
+
+            if (!manager.IsInstalled)
+            {
+                if (!silentWhenCurrent)
+                {
+                    MessageBox.Show(
+                        "Automatic updates are available in the installed TOST build.\n\nDownload TOST Setup from the Releases page to switch from a raw or portable build.",
+                        "TOST Updates",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+
+                return;
+            }
+
+            Cursor = Cursors.WaitCursor;
+            trayIcon.Text = "TOST - checking for updates";
+            var update = await manager.CheckForUpdatesAsync();
+            if (update is null)
+            {
+                if (!silentWhenCurrent)
+                {
+                    MessageBox.Show("TOST is up to date.", "TOST Updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"TOST {update.TargetFullRelease.Version} is available.\n\nDownload it now and restart TOST?",
+                "TOST Update Available",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information);
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+
+            trayIcon.Text = "TOST - downloading update";
+            await manager.DownloadUpdatesAsync(
+                update,
+                progress => BeginInvoke(() => trayIcon.Text = $"TOST - downloading {progress}%"),
+                CancellationToken.None);
+            logger.Info($"Downloaded TOST update {update.TargetFullRelease.Version}.");
+            manager.ApplyUpdatesAndRestart(update.TargetFullRelease, null);
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"TOST update check failed: {ex}");
+            if (!silentWhenCurrent)
+            {
+                MessageBox.Show(
+                    $"Could not check for TOST updates.\n\n{ex.Message}",
+                    "TOST Updates",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+        finally
+        {
+            Cursor = Cursors.Default;
+            trayIcon.Text = "TOST";
+        }
+    }
+
+    private static void OpenWebsite(string url)
+    {
         Process.Start(new ProcessStartInfo
         {
-            FileName = UpstreamReleasesUrl,
+            FileName = url,
             UseShellExecute = true
         });
     }
@@ -581,7 +639,7 @@ internal sealed class FloatingInstallerForm : Form
         TopMost = settings.AlwaysOnTop;
         SetStartupRegistration(settings.StartWithWindows);
         logger.Info("Settings saved.");
-        MessageBox.Show("Settings saved.", "OpenSteamTool Installer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show("Settings saved.", "TOST", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void ShowReport(CopyReport report)
@@ -589,7 +647,7 @@ internal sealed class FloatingInstallerForm : Form
         logger.Info(report.ToLogMessage());
         MessageBox.Show(
             report.ToMessage(),
-            "OpenSteamTool Installer",
+            "TOST",
             MessageBoxButtons.OK,
             report.Failures == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
     }
@@ -612,7 +670,7 @@ internal sealed class FloatingInstallerForm : Form
         }
 
         using var embeddedLogo = typeof(FloatingInstallerForm).Assembly
-            .GetManifestResourceStream("OST.Assets.logo-128.png");
+            .GetManifestResourceStream("TOST.Assets.logo-128.png");
         if (embeddedLogo is not null)
         {
             using var source = Image.FromStream(embeddedLogo);
@@ -655,7 +713,7 @@ internal sealed class FloatingInstallerForm : Form
         {
             MessageBox.Show(
                 "Steam was not found. Check the Steam folder in Settings.",
-                "OST",
+                "TOST",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
             return;
@@ -736,10 +794,12 @@ internal sealed class FloatingInstallerForm : Form
             return;
         }
 
-        const string valueName = "OpenSteamToolFloatingInstaller";
+        const string valueName = "TOST";
+        const string oldValueName = "OpenSteamToolFloatingInstaller";
+        key.DeleteValue(oldValueName, throwOnMissingValue: false);
         if (enabled)
         {
-            key.SetValue(valueName, $"\"{Application.ExecutablePath}\"");
+            key.SetValue(valueName, $"\"{AppPaths.LauncherPath}\"");
         }
         else
         {
@@ -832,7 +892,7 @@ internal sealed class FloatingIconSurface : Control
                 Alignment = StringAlignment.Center,
                 LineAlignment = StringAlignment.Center
             };
-            e.Graphics.DrawString("OST", font, brush, ClientRectangle, format);
+            e.Graphics.DrawString("TOST", font, brush, ClientRectangle, format);
         }
 
         using var border = new Pen(
@@ -1079,17 +1139,18 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox backupCheckBox = new();
     private readonly CheckBox startupCheckBox = new();
     private readonly CheckBox alwaysOnTopCheckBox = new();
+    private readonly CheckBox updateCheckBox = new();
 
     public SettingsForm(InstallerSettings settings)
     {
         this.settings = settings;
 
-        Text = "OpenSteamTool Installer Settings";
+        Text = "TOST Settings";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(520, 238);
+        ClientSize = new Size(520, 270);
 
         var steamRootLabel = new Label
         {
@@ -1130,11 +1191,16 @@ internal sealed class SettingsForm : Form
         alwaysOnTopCheckBox.Location = new Point(16, 178);
         alwaysOnTopCheckBox.Checked = settings.AlwaysOnTop;
 
+        updateCheckBox.Text = "Automatically check for TOST updates";
+        updateCheckBox.AutoSize = true;
+        updateCheckBox.Location = new Point(16, 208);
+        updateCheckBox.Checked = settings.AutoCheckForUpdates;
+
         var saveButton = new Button
         {
             Text = "Save",
             DialogResult = DialogResult.OK,
-            Location = new Point(348, 196),
+            Location = new Point(348, 228),
             Size = new Size(75, 29)
         };
         saveButton.Click += (_, _) => ApplySettings();
@@ -1143,7 +1209,7 @@ internal sealed class SettingsForm : Form
         {
             Text = "Cancel",
             DialogResult = DialogResult.Cancel,
-            Location = new Point(429, 196),
+            Location = new Point(429, 228),
             Size = new Size(75, 29)
         };
 
@@ -1155,6 +1221,7 @@ internal sealed class SettingsForm : Form
             backupCheckBox,
             startupCheckBox,
             alwaysOnTopCheckBox,
+            updateCheckBox,
             saveButton,
             cancelButton
         ]);
@@ -1185,6 +1252,87 @@ internal sealed class SettingsForm : Form
         settings.BackupBeforeOverwrite = backupCheckBox.Checked;
         settings.StartWithWindows = startupCheckBox.Checked;
         settings.AlwaysOnTop = alwaysOnTopCheckBox.Checked;
+        settings.AutoCheckForUpdates = updateCheckBox.Checked;
+    }
+}
+
+internal static class AppPaths
+{
+    public static bool IsPortable { get; private set; } = true;
+    public static string DataDirectory { get; private set; } = AppContext.BaseDirectory;
+    public static string LauncherPath { get; private set; } = Application.ExecutablePath;
+    public static string SettingsPath => Path.Combine(DataDirectory, "installer-settings.json");
+    public static string LogDirectory => Path.Combine(DataDirectory, "logs");
+    public static string LogPath => Path.Combine(LogDirectory, "install.log");
+
+    public static void Initialize()
+    {
+        var locator = VelopackLocator.Current;
+        IsPortable = locator.IsPortable;
+
+        if (IsPortable)
+        {
+            DataDirectory = AppContext.BaseDirectory;
+            LauncherPath = Application.ExecutablePath;
+        }
+        else
+        {
+            var root = string.IsNullOrWhiteSpace(locator.RootAppDir)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TOST")
+                : locator.RootAppDir;
+            DataDirectory = Path.Combine(root, "data");
+            LauncherPath = Path.Combine(root, "TOST.exe");
+        }
+
+        Directory.CreateDirectory(DataDirectory);
+        MigrateLegacyData();
+    }
+
+    private static void MigrateLegacyData()
+    {
+        var oldLocalData = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "OST",
+            "data");
+        var settingsCandidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "installer-settings.json"),
+            Path.Combine(oldLocalData, "installer-settings.json")
+        };
+        var logCandidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "logs", "install.log"),
+            Path.Combine(oldLocalData, "logs", "install.log")
+        };
+
+        MigrateFirstExistingFile(settingsCandidates, SettingsPath);
+        MigrateFirstExistingFile(logCandidates, LogPath);
+    }
+
+    private static void MigrateFirstExistingFile(IEnumerable<string> candidates, string destination)
+    {
+        if (File.Exists(destination))
+        {
+            return;
+        }
+
+        var source = candidates.FirstOrDefault(path =>
+            !Path.GetFullPath(path).Equals(Path.GetFullPath(destination), StringComparison.OrdinalIgnoreCase) &&
+            File.Exists(path));
+        if (source is null)
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(source, destination, overwrite: false);
+        }
+        catch
+        {
+            // A migration failure must not prevent TOST from starting.
+        }
     }
 }
 
@@ -1195,15 +1343,22 @@ internal sealed class InstallerSettings
     public bool BackupBeforeOverwrite { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public bool AlwaysOnTop { get; set; } = true;
+    public bool AutoCheckForUpdates { get; set; } = true;
+    public DateTime? LastUpdateCheckUtc { get; set; }
 
     public string SteamConfigPath => Path.Combine(SteamRoot, "config");
     public string LuaPath => Path.Combine(SteamConfigPath, "lua");
     public string SteamAppsPath => Path.Combine(SteamRoot, "steamapps");
     public string SteamCommonPath => Path.Combine(SteamAppsPath, "common");
     public string SteamUserDataPath => Path.Combine(SteamRoot, "userdata");
-    public string BundledFilesPath => Path.Combine(AppContext.BaseDirectory, "files");
-    public string LogDirectory => Path.Combine(AppContext.BaseDirectory, "logs");
-    public string LogPath => Path.Combine(LogDirectory, "install.log");
+    public string LogDirectory => AppPaths.LogDirectory;
+    public string LogPath => AppPaths.LogPath;
+
+    public bool ShouldCheckForUpdates()
+    {
+        return AutoCheckForUpdates &&
+            (!LastUpdateCheckUtc.HasValue || DateTime.UtcNow - LastUpdateCheckUtc.Value >= TimeSpan.FromHours(24));
+    }
 
     public static InstallerSettings Load()
     {
@@ -1225,12 +1380,12 @@ internal sealed class InstallerSettings
 
     public void Save()
     {
-        Directory.CreateDirectory(AppContext.BaseDirectory);
+        Directory.CreateDirectory(AppPaths.DataDirectory);
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(SettingsPath, json);
+        File.WriteAllText(AppPaths.SettingsPath, json);
     }
 
-    private static string SettingsPath => Path.Combine(AppContext.BaseDirectory, "installer-settings.json");
+    private static string SettingsPath => AppPaths.SettingsPath;
 
     private static string DetectSteamRoot()
     {

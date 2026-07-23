@@ -2,8 +2,11 @@ bin/
 obj/
 publish/
 package/
+artifacts/
+Releases/
 logs/
 installer-settings.json
 OST-Floating-Installer.zip
+TOST-Portable-win-x64.zip
 st/
 analysis/
