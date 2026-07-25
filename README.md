@@ -1,10 +1,10 @@
 # TOST
-**trionine open-source installer for OpenSteamTool**
+**Trionine open-source installer for OpenSteamTool**
 
 TOST is an independent Windows utility created and maintained by
-[sadabx](https://github.com/sadabx). It provides a
-floating desktop icon for routing supported OpenSteamTool files into the
-correct Steam directories.
+[sadabx](https://github.com/sadabx). It downloads and installs the latest
+official OpenSteamTool release, and provides a floating desktop icon for
+routing supported local files into the correct Steam directories.
 
 TOST is built around the separately maintained
 [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool) project. It is
@@ -48,12 +48,24 @@ single standalone executable.
 
 ## Usage
 
-- Drag supported files, folders, or ZIP packages onto the floating icon.
 - Use `Install / Repair OpenSteamTool` to download and apply the latest official
   OpenSteamTool release automatically.
+- Drag supported files, folders, or ZIP packages onto the floating icon to
+  import local packages.
 - Right-click the icon for the menu; double-click it to restart Steam.
 - Double-click the system tray icon to restore a hidden floating icon.
 
+### Automatic installation
+
+When `Install / Repair OpenSteamTool` is selected, TOST:
+
+1. Resolves the latest release from the official OpenSteamTool GitHub repository.
+2. Downloads the non-debug release ZIP to a temporary location.
+3. Validates the archive and copies supported files into the Steam directory.
+4. Removes the temporary download when installation finishes.
+
+Existing files are backed up before replacement when backups are enabled.
+Restart Steam after installation so the new files take effect.
 
 ### File routing
 
@@ -116,14 +128,26 @@ Only install files that you trust and have permission to use or redistribute.
 ## Project structure
 
 ```text
-.config/dotnet-tools.json  Pinned Velopack CLI
-Assets/                    Application icon and attributed logo assets
-Program.cs                 WinForms application
-TOST.csproj                .NET project
-build-release.ps1          Windows build and packaging script
-publish-release.ps1        GitHub release publishing script
-release-notes.md           Packaged release notes
+TOST/
+|-- .config/
+|   `-- dotnet-tools.json     Pinned Velopack CLI
+|-- Assets/
+|   |-- TOST.png              README preview
+|   |-- logo-128.png          Embedded floating-window logo
+|   |-- logo-512.png          High-resolution logo
+|   `-- opensteamtool.ico     Application and installer icon
+|-- .gitignore
+|-- LICENSE
+|-- Program.cs                WinForms application
+|-- README.md
+|-- TOST.csproj               .NET project
+|-- build-release.ps1         Windows build and packaging script
+|-- publish-release.ps1       GitHub release publishing script
+`-- release-notes.md          Packaged release notes
 ```
+
+Generated `bin/`, `obj/`, `artifacts/`, and `Releases/` directories are not
+committed.
 
 ## Credits
 
