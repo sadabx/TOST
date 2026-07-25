@@ -351,14 +351,7 @@ internal sealed class FloatingInstallerForm : Form
 
         foreach (var path in dialog.FileNames)
         {
-            if (Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase))
-            {
-                InstallFromZip(path, report);
-            }
-            else
-            {
-                CopyExpectedPath(path, report);
-            }
+            CopyExpectedPath(path, report);
         }
 
         ShowReport(report);
@@ -625,6 +618,12 @@ internal sealed class FloatingInstallerForm : Form
         {
             report.AddFailure(sourcePath, "Path does not exist.");
             logger.Error($"Skipped missing path: {sourcePath}");
+            return;
+        }
+
+        if (Path.GetExtension(sourcePath).Equals(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            InstallFromZip(sourcePath, report);
             return;
         }
 

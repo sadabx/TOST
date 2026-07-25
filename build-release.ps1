@@ -2,7 +2,7 @@
 param(
     [Parameter()]
     [ValidatePattern("^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$")]
-    [string]$Version = "1.0.2",
+    [string]$Version = "1.0.3",
 
     [Parameter()]
     [switch]$SkipPreviousRelease
@@ -66,8 +66,11 @@ dotnet vpk pack `
 Assert-LastExitCode "Velopack packaging"
 
 # GitHub releases should contain only the current full package and delta.
-Get-ChildItem $ReleaseDir -Filter "*-full.nupkg" |
-    Where-Object { $_.Name -ne "TOST-$Version-full.nupkg" } |
+Get-ChildItem $ReleaseDir -Filter "*.nupkg" |
+    Where-Object {
+        $_.Name -ne "TOST-$Version-full.nupkg" -and
+        $_.Name -ne "TOST-$Version-delta.nupkg"
+    } |
     Remove-Item -Force
 
 Write-Host ""
