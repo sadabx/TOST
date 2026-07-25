@@ -1,5 +1,5 @@
 # TOST
-**trionine open-sourced installer for OpenSteamTool**
+**trionine open-source installer for OpenSteamTool**
 
 TOST is an independent Windows utility created and maintained by
 [sadabx](https://github.com/sadabx). It provides a
@@ -11,18 +11,17 @@ TOST is built around the separately maintained
 not the closed-source SteamTools application, and it is not owned, maintained,
 or endorsed by OpenSteamTool, Valve, or Steam.
 
+## Preview
+
+![TOST floating installer menu](Assets/TOST.png)
+
 ## Features
 
-- Compact, always-on-top floating icon with a system tray fallback
-- Drag-and-drop installation for supported files and folders
-- Local ZIP, DLL, and TOML package selection
-- Automatic Steam directory detection and folder creation
-- Timestamped backups before overwriting existing files
-- Desktop notifications summarizing imported files
-- Shortcuts for Steam, OpenSteamTool releases, and ManifestHub
-- Installed and portable Windows packages
-- Automatic update checks for the installed build
-- Migration of existing OST settings and logs
+- Floating icon and system tray controls
+- Drag-and-drop or local package installation
+- Automatic Steam detection, file routing, and backups
+- Import notifications, logs, and useful shortcuts
+- Installed and portable builds with update support
 
 TOST does not bundle or silently download third-party OpenSteamTool files.
 Download payloads only from sources you trust, then drag them onto TOST or use
@@ -33,8 +32,6 @@ Download payloads only from sources you trust, then drag them onto TOST or use
 - Windows 10 or newer
 - 64-bit Windows
 - An existing Steam installation
-
-Both distributions are self-contained. Users do not need to install .NET.
 
 ## Download
 
@@ -49,22 +46,11 @@ single standalone executable.
 
 ## Usage
 
-Right-click the floating icon to open its menu. Double-click it to restart
-Steam. If the floating window is hidden, double-click the TOST system tray icon
-to restore it.
+- Drag supported files, folders, or ZIP packages onto the floating icon.
+- Use `Install / Repair OpenSteamTool` to select a local ZIP, DLL, or TOML file.
+- Right-click the icon for the menu; double-click it to restart Steam.
+- Double-click the system tray icon to restore a hidden floating icon.
 
-### Install or repair
-
-`Install / Repair OpenSteamTool` opens a local package picker. TOST accepts ZIP,
-DLL, and TOML files that you downloaded separately. ZIP archives are inspected
-without broadly extracting their contents, and only recognized files are
-copied.
-
-### Drag and drop
-
-Drag supported files or folders onto the floating icon. TOST routes recognized
-files to their destinations and shows a summary notification. Unsupported files
-are skipped and recorded in the log.
 
 ### File routing
 
@@ -113,10 +99,6 @@ every 24 hours. Automatic checks can be disabled in Settings. Portable and raw
 development builds can check the release page but do not modify themselves in
 place.
 
-When `Start with Windows` is enabled, TOST registers its stable installed
-launcher. The old `OpenSteamToolFloatingInstaller` startup entry is removed
-during migration.
-
 ## Safety
 
 - Only recognized filenames and extensions are copied.
@@ -126,37 +108,6 @@ during migration.
 - Third-party payloads require explicit local user selection.
 
 Only install files that you trust and have permission to use or redistribute.
-
-## Build
-
-Use Windows with the .NET 8 SDK. The repository pins Velopack `vpk` as a local
-.NET tool.
-
-Create setup, portable, package, and update-feed assets:
-
-```powershell
-.\build-release.ps1 -Version 1.0.2
-```
-
-For the first Velopack release, or when no previous feed exists:
-
-```powershell
-.\build-release.ps1 -Version 1.0.2 -SkipPreviousRelease
-```
-
-Output is written to `Releases\`. Upload every generated file together; the
-`releases.win.json` and package files are required for automatic updates.
-
-To create and publish a stable GitHub release automatically:
-
-```powershell
-$env:GITHUB_TOKEN = "token-with-releases-write-access"
-.\publish-release.ps1 -Version 1.0.2
-```
-
-For later versions, run `build-release.ps1` without
-`-SkipPreviousRelease`. It downloads the prior package before packing so
-Velopack can generate a smaller delta update.
 
 ## Project structure
 
@@ -170,14 +121,11 @@ publish-release.ps1        GitHub release publishing script
 release-notes.md           Packaged release notes
 ```
 
-Do not commit extracted proprietary applications, third-party payloads, local
-settings, logs, or generated build output.
-
 ## Credits
 
 ### TOST
 
-Created and maintained by [Sadabx](https://github.com/sadabx) under
+Created and maintained by [sadabx](https://github.com/sadabx) under
 [Trionine](https://trionine.com/).
 
 ### OpenSteamTool
