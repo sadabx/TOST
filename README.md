@@ -18,14 +18,16 @@ or endorsed by OpenSteamTool, Valve, or Steam.
 ## Features
 
 - Floating icon and system tray controls
-- Drag-and-drop or local package installation
+- Automatic OpenSteamTool installation and repair from its official release
+- Drag-and-drop installation for local packages
 - Automatic Steam detection, file routing, and backups
 - Import notifications, logs, and useful shortcuts
 - Installed and portable builds with update support
 
-TOST does not bundle or silently download third-party OpenSteamTool files.
-Download payloads only from sources you trust, then drag them onto TOST or use
-`Install / Repair OpenSteamTool`.
+TOST does not bundle OpenSteamTool files. Selecting
+`Install / Repair OpenSteamTool` explicitly downloads the latest release ZIP
+from the official OpenSteamTool GitHub repository and installs its supported
+files. Local packages can still be imported by dragging them onto TOST.
 
 ## Requirements
 
@@ -47,7 +49,8 @@ single standalone executable.
 ## Usage
 
 - Drag supported files, folders, or ZIP packages onto the floating icon.
-- Use `Install / Repair OpenSteamTool` to select a local ZIP, DLL, or TOML file.
+- Use `Install / Repair OpenSteamTool` to download and apply the latest official
+  OpenSteamTool release automatically.
 - Right-click the icon for the menu; double-click it to restart Steam.
 - Double-click the system tray icon to restore a hidden floating icon.
 
@@ -105,7 +108,8 @@ place.
 - Existing files can be backed up before replacement.
 - ZIP packages with duplicate supported filenames are rejected.
 - Oversized ZIP entries and payloads are rejected.
-- Third-party payloads require explicit local user selection.
+- Automatic downloads use the official OpenSteamTool GitHub release.
+- Local third-party payloads require explicit drag-and-drop.
 
 Only install files that you trust and have permission to use or redistribute.
 

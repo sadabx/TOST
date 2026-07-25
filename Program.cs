@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.IO.Compression;
+using System.Net;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using Microsoft.Win32;
 using Velopack;
@@ -54,18 +56,22 @@ internal static class Program
 internal sealed class FloatingInstallerForm : Form
 {
     private const string UpstreamReleasesUrl = "https://github.com/OpenSteam001/OpenSteamTool/releases";
+    private const string UpstreamLatestReleaseUrl = "https://github.com/OpenSteam001/OpenSteamTool/releases/latest";
     private const string TostUpdateUrl = "https://github.com/sadabx/TOST/releases/latest/download";
     private const string ManifestHubUrl = "https://manifesthub.trionine.com/";
     private const long MaxArchiveEntryBytes = 256L * 1024 * 1024;
     private const long MaxArchivePayloadBytes = 512L * 1024 * 1024;
+    private const long MaxUpstreamDownloadBytes = 512L * 1024 * 1024;
     private const int MaxArchiveEntries = 10_000;
     private static readonly string? SymbolFontFamilyName = FindSymbolFontFamily();
+    private static readonly HttpClient UpstreamHttpClient = CreateUpstreamHttpClient();
     private readonly InstallerSettings settings;
     private readonly InstallerLogger logger;
     private readonly FloatingIconSurface glyph = new();
     private readonly ToolTip toolTip = new();
     private readonly NotifyIcon trayIcon;
     private DropToastForm? activeToast;
+    private bool isInstallingOpenSteamTool;
 
     public FloatingInstallerForm()
     {
@@ -139,7 +145,7 @@ internal sealed class FloatingInstallerForm : Form
         menu.Items.Add(CreateMenuItem("Launch Steam", "\uE768", (_, _) => LaunchSteam()));
         menu.Items.Add(CreateMenuItem("Restart Steam", "\uE72C", (_, _) => RestartSteam()));
         menu.Items.Add(CreateSeparator());
-        menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
+        menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", async (_, _) => await InstallOrRepairAsync()));
         menu.Items.Add(CreateMenuItem("View OpenSteamTool Releases", "\uE774", (_, _) => OpenOfficialReleases()));
         menu.Items.Add(CreateMenuItem("Open ManifestHub", "\uE774", (_, _) => OpenManifestHub()));
 
@@ -166,7 +172,7 @@ internal sealed class FloatingInstallerForm : Form
     {
         var menu = CreateDarkMenu();
         menu.Items.Add(CreateMenuItem("Show Floating Icon", "\uE890", (_, _) => ShowFloatingWindow()));
-        menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", (_, _) => InstallOrRepair()));
+        menu.Items.Add(CreateMenuItem("Install / Repair OpenSteamTool", "\uE896", async (_, _) => await InstallOrRepairAsync()));
         menu.Items.Add(CreateMenuItem("Check for Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
         menu.Items.Add(CreateSeparator());
         menu.Items.Add(CreateMenuItem("Exit", "\uE7E8", (_, _) => Close()));
@@ -326,35 +332,148 @@ internal sealed class FloatingInstallerForm : Form
         activeToast.Show(this);
     }
 
-    private void InstallOrRepair()
+    private async Task InstallOrRepairAsync()
     {
-        SelectLocalPackage();
-    }
-
-    private void SelectLocalPackage()
-    {
-        using var dialog = new OpenFileDialog
-        {
-            Title = "Select a local OpenSteamTool package",
-            Filter = "Supported packages (*.zip;*.dll;*.toml)|*.zip;*.dll;*.toml|ZIP archives (*.zip)|*.zip|OpenSteamTool files (*.dll;*.toml)|*.dll;*.toml|All files (*.*)|*.*",
-            Multiselect = true,
-            CheckFileExists = true
-        };
-
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        if (isInstallingOpenSteamTool)
         {
             return;
         }
 
+        isInstallingOpenSteamTool = true;
+        UseWaitCursor = true;
+        string? temporaryArchivePath = null;
         var report = new CopyReport();
-        EnsureSteamFolders(report);
 
-        foreach (var path in dialog.FileNames)
+        try
         {
-            CopyExpectedPath(path, report);
+            var release = await ResolveLatestOpenSteamToolReleaseAsync();
+            temporaryArchivePath = Path.Combine(
+                Path.GetTempPath(),
+                $"TOST-{release.AssetName}-{Guid.NewGuid():N}.zip");
+
+            logger.Info($"Downloading OpenSteamTool {release.Tag} from {release.DownloadUri}");
+            await DownloadFileAsync(release.DownloadUri, temporaryArchivePath, MaxUpstreamDownloadBytes);
+
+            EnsureSteamFolders(report);
+            InstallFromZip(temporaryArchivePath, report);
+            logger.Info($"Finished OpenSteamTool {release.Tag} install/repair.");
+        }
+        catch (Exception ex)
+        {
+            report.AddFailure("OpenSteamTool download", ex.Message);
+            logger.Error($"Automatic OpenSteamTool install/repair failed: {ex}");
+        }
+        finally
+        {
+            UseWaitCursor = false;
+            isInstallingOpenSteamTool = false;
+
+            if (temporaryArchivePath is not null)
+            {
+                try
+                {
+                    File.Delete(temporaryArchivePath);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Could not remove temporary download {temporaryArchivePath}: {ex}");
+                }
+            }
         }
 
         ShowReport(report);
+    }
+
+    private static async Task<OpenSteamToolRelease> ResolveLatestOpenSteamToolReleaseAsync()
+    {
+        using var latestResponse = await UpstreamHttpClient.GetAsync(
+            UpstreamLatestReleaseUrl,
+            HttpCompletionOption.ResponseHeadersRead);
+        latestResponse.EnsureSuccessStatusCode();
+
+        var releaseUri = latestResponse.RequestMessage?.RequestUri
+            ?? throw new InvalidDataException("GitHub did not return the latest OpenSteamTool release URL.");
+        var pathSegments = releaseUri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var tagMarkerIndex = Array.FindIndex(
+            pathSegments,
+            segment => segment.Equals("tag", StringComparison.OrdinalIgnoreCase));
+        if (tagMarkerIndex < 0 || tagMarkerIndex + 1 >= pathSegments.Length)
+        {
+            throw new InvalidDataException("Could not determine the latest OpenSteamTool release tag.");
+        }
+
+        var tag = Uri.UnescapeDataString(pathSegments[tagMarkerIndex + 1]);
+        var assetsUri = new Uri(
+            $"https://github.com/OpenSteam001/OpenSteamTool/releases/expanded_assets/{Uri.EscapeDataString(tag)}");
+        var assetsHtml = await UpstreamHttpClient.GetStringAsync(assetsUri);
+        var assetPaths = Regex.Matches(
+                assetsHtml,
+                "href=\"(?<path>/OpenSteam001/OpenSteamTool/releases/download/[^\"]+\\.zip)\"",
+                RegexOptions.IgnoreCase)
+            .Select(match => WebUtility.HtmlDecode(match.Groups["path"].Value))
+            .Where(path =>
+                Path.GetFileName(path).StartsWith("OpenSteamTool-", StringComparison.OrdinalIgnoreCase) &&
+                Path.GetFileName(path).EndsWith("-Release.zip", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (assetPaths.Count != 1)
+        {
+            throw new InvalidDataException(
+                assetPaths.Count == 0
+                    ? "The latest OpenSteamTool release does not contain a release ZIP."
+                    : "The latest OpenSteamTool release contains multiple matching release ZIPs.");
+        }
+
+        var downloadUri = new Uri(new Uri("https://github.com"), assetPaths[0]);
+        return new OpenSteamToolRelease(tag, Path.GetFileName(downloadUri.LocalPath), downloadUri);
+    }
+
+    private static async Task DownloadFileAsync(Uri sourceUri, string destinationPath, long maximumBytes)
+    {
+        using var response = await UpstreamHttpClient.GetAsync(
+            sourceUri,
+            HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        if (response.Content.Headers.ContentLength is long contentLength &&
+            contentLength > maximumBytes)
+        {
+            throw new InvalidDataException("The OpenSteamTool download is larger than the supported limit.");
+        }
+
+        await using var source = await response.Content.ReadAsStreamAsync();
+        await using var destination = new FileStream(
+            destinationPath,
+            FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None,
+            bufferSize: 81920,
+            options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        var buffer = new byte[81920];
+        long bytesCopied = 0;
+        int bytesRead;
+        while ((bytesRead = await source.ReadAsync(buffer)) > 0)
+        {
+            if (bytesCopied > maximumBytes - bytesRead)
+            {
+                throw new InvalidDataException("The OpenSteamTool download is larger than the supported limit.");
+            }
+
+            bytesCopied += bytesRead;
+            await destination.WriteAsync(buffer.AsMemory(0, bytesRead));
+        }
+    }
+
+    private static HttpClient CreateUpstreamHttpClient()
+    {
+        var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromMinutes(5)
+        };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("TOST/1.1 (+https://github.com/sadabx/TOST)");
+        return client;
     }
 
     private void InstallFromZip(string archivePath, CopyReport report)
@@ -1540,6 +1659,8 @@ internal sealed class InstallerLogger
         }
     }
 }
+
+internal sealed record OpenSteamToolRelease(string Tag, string AssetName, Uri DownloadUri);
 
 internal sealed class CopyReport
 {
