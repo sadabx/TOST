@@ -58,6 +58,7 @@ internal sealed class FloatingInstallerForm : Form
     private const string ManifestHubUrl = "https://manifesthub.trionine.com/";
     private const long MaxArchiveEntryBytes = 256L * 1024 * 1024;
     private const long MaxArchivePayloadBytes = 512L * 1024 * 1024;
+    private const int MaxArchiveEntries = 10_000;
     private static readonly string? SymbolFontFamilyName = FindSymbolFontFamily();
     private readonly InstallerSettings settings;
     private readonly InstallerLogger logger;
@@ -368,6 +369,14 @@ internal sealed class FloatingInstallerForm : Form
         try
         {
             using var archive = ZipFile.OpenRead(archivePath);
+            if (archive.Entries.Count > MaxArchiveEntries)
+            {
+                report.AddFailure(
+                    Path.GetFileName(archivePath),
+                    $"Archive contains too many entries (maximum {MaxArchiveEntries:N0}).");
+                return;
+            }
+
             var recognizedEntries = archive.Entries
                 .Where(entry => !string.IsNullOrEmpty(entry.Name) && ResolveDestination(entry.Name) is not null)
                 .ToList();
@@ -398,10 +407,11 @@ internal sealed class FloatingInstallerForm : Form
                 return;
             }
 
+            long actualPayloadBytes = 0;
             foreach (var entry in recognizedEntries)
             {
                 var destinationDirectory = ResolveDestination(entry.Name)!;
-                CopyArchiveEntry(entry, destinationDirectory, report);
+                CopyArchiveEntry(entry, destinationDirectory, report, ref actualPayloadBytes);
             }
         }
         catch (InvalidDataException ex)
@@ -416,12 +426,50 @@ internal sealed class FloatingInstallerForm : Form
         }
     }
 
-    private void CopyArchiveEntry(ZipArchiveEntry entry, string destinationDirectory, CopyReport report)
+    private void CopyArchiveEntry(
+        ZipArchiveEntry entry,
+        string destinationDirectory,
+        CopyReport report,
+        ref long actualPayloadBytes)
     {
+        string? temporaryPath = null;
         try
         {
             Directory.CreateDirectory(destinationDirectory);
             var destinationPath = Path.Combine(destinationDirectory, entry.Name);
+
+            // Decompress into a same-directory temporary file first. Besides enforcing
+            // the limit against the actual stream (not only the ZIP header), this keeps
+            // a failed ZIP import from leaving a partially written Steam file behind.
+            temporaryPath = Path.Combine(
+                destinationDirectory,
+                $".{entry.Name}.{Guid.NewGuid():N}.tost-tmp");
+            long bytesCopied = 0;
+            using (var source = entry.Open())
+            using (var destination = new FileStream(
+                temporaryPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 81920,
+                options: FileOptions.SequentialScan))
+            {
+                var buffer = new byte[81920];
+                int bytesRead;
+                while ((bytesRead = source.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    if (bytesCopied > MaxArchiveEntryBytes - bytesRead ||
+                        actualPayloadBytes > MaxArchivePayloadBytes - bytesRead)
+                    {
+                        throw new InvalidDataException("Archive payload exceeds the supported size limit.");
+                    }
+
+                    bytesCopied += bytesRead;
+                    actualPayloadBytes += bytesRead;
+                    destination.Write(buffer, 0, bytesRead);
+                }
+            }
+
             if (settings.BackupBeforeOverwrite && File.Exists(destinationPath))
             {
                 var backupPath = destinationPath + ".bak-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
@@ -429,13 +477,8 @@ internal sealed class FloatingInstallerForm : Form
                 logger.Info($"Backed up {destinationPath} -> {backupPath}");
             }
 
-            using var source = entry.Open();
-            using var destination = new FileStream(
-                destinationPath,
-                settings.OverwriteExisting ? FileMode.Create : FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None);
-            source.CopyTo(destination);
+            File.Move(temporaryPath, destinationPath, overwrite: settings.OverwriteExisting);
+            temporaryPath = null;
 
             report.AddSuccess(entry.Name, destinationDirectory);
             logger.Info($"Copied ZIP entry {entry.FullName} -> {destinationPath}");
@@ -444,6 +487,20 @@ internal sealed class FloatingInstallerForm : Form
         {
             report.AddFailure(entry.Name, ex.Message);
             logger.Error($"Failed to copy ZIP entry {entry.FullName}: {ex}");
+        }
+        finally
+        {
+            if (temporaryPath is not null)
+            {
+                try
+                {
+                    File.Delete(temporaryPath);
+                }
+                catch
+                {
+                    // Best-effort cleanup; the import failure is already reported.
+                }
+            }
         }
     }
 
