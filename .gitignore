@@ -4,11 +4,13 @@ publish/
 package/
 artifacts/
 Releases/
+release-notes.md
+publish-release.ps1
 logs/
 installer-settings.json
 OST-Floating-Installer.zip
 TOST-Portable-win-x64.zip
 st/
 analysis/
-.md/
+build.md
 *.txt

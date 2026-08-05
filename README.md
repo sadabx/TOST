@@ -173,9 +173,7 @@ TOST/
 |-- Program.cs                Application startup and single-instance handling
 |-- README.md
 |-- TOST.csproj               .NET project
-|-- build-release.ps1         Windows build and packaging script
-|-- publish-release.ps1       GitHub release publishing script
-`-- release-notes.md          Packaged release notes
+`-- build-release.ps1         Windows build and packaging script
 ```
 
 Generated `bin/`, `obj/`, `artifacts/`, and `Releases/` directories are not
