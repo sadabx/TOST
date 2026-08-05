@@ -90,7 +90,7 @@ internal sealed class FloatingInstallerForm : Form
         BackColor = Color.FromArgb(43, 45, 48);
         AllowDrop = true;
         ContextMenuStrip = BuildMenu();
-        Region = CreateRoundedRegion(ClientRectangle, 8);
+        Region = CreateRoundedRegion(ClientRectangle, ClientSize.Width / 2);
 
         var screen = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
         Location = new Point(screen.Left + Math.Max(24, (int)(screen.Width * 0.24)), screen.Top + 116);
@@ -181,7 +181,7 @@ internal sealed class FloatingInstallerForm : Form
 
     private static ContextMenuStrip CreateDarkMenu()
     {
-        return new ContextMenuStrip
+        var menu = new ContextMenuStrip
         {
             AutoSize = true,
             MinimumSize = new Size(244, 0),
@@ -193,6 +193,9 @@ internal sealed class FloatingInstallerForm : Form
             ShowImageMargin = true,
             Renderer = new SteamStyleMenuRenderer()
         };
+
+        menu.Opening += (_, _) => FillMenuDisplayWidth(menu);
+        return menu;
     }
 
     private static ToolStripMenuItem CreateMenuItem(string text, string glyphText, EventHandler? click = null, int width = 232)
@@ -224,10 +227,25 @@ internal sealed class FloatingInstallerForm : Form
         };
     }
 
+    private static void FillMenuDisplayWidth(ToolStripDropDown menu)
+    {
+        var width = menu.DisplayRectangle.Width;
+        if (width <= 0)
+        {
+            return;
+        }
+
+        foreach (ToolStripItem item in menu.Items)
+        {
+            item.Size = new Size(width, item.Height);
+        }
+    }
+
     private static Bitmap CreateMenuIcon(string glyphText)
     {
-        // Keep a one-pixel safety edge so symbol-font overhangs are not clipped.
-        var bitmap = new Bitmap(22, 22);
+        // Symbol-font glyphs can overhang their nominal bounds at high DPI.
+        // Keep a three-pixel safety edge around the original 20px drawing area.
+        var bitmap = new Bitmap(26, 26);
         using var graphics = Graphics.FromImage(bitmap);
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
@@ -237,9 +255,10 @@ internal sealed class FloatingInstallerForm : Form
         using var format = new StringFormat
         {
             Alignment = StringAlignment.Center,
-            LineAlignment = StringAlignment.Center
+            LineAlignment = StringAlignment.Center,
+            FormatFlags = StringFormatFlags.NoClip | StringFormatFlags.NoWrap
         };
-        graphics.DrawString(glyphText, font, brush, new RectangleF(1, 1, 20, 20), format);
+        graphics.DrawString(glyphText, font, brush, new RectangleF(0, 0, 26, 26), format);
         return bitmap;
     }
 
@@ -278,6 +297,7 @@ internal sealed class FloatingInstallerForm : Form
             item.DropDown.ForeColor = Color.FromArgb(226, 229, 232);
             item.DropDown.Padding = new Padding(5, 7, 5, 7);
             item.DropDown.Renderer = new SteamStyleMenuRenderer();
+            item.DropDown.Opening += (_, _) => FillMenuDisplayWidth(item.DropDown);
             StyleDropDowns(item.DropDownItems);
         }
     }
@@ -1141,7 +1161,7 @@ internal sealed class FloatingIconSurface : Control
         using var border = new Pen(
             IsDropTarget ? Color.FromArgb(102, 192, 244) : Color.FromArgb(72, 75, 79),
             IsDropTarget ? 2f : 1f);
-        e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+        e.Graphics.DrawEllipse(border, 1, 1, Width - 3, Height - 3);
     }
 }
 
@@ -1186,7 +1206,7 @@ internal sealed class SteamStyleMenuRenderer : ToolStripProfessionalRenderer
         // Draw the full glyph ourselves instead of using the narrow image slot
         // calculated by the standard menu renderer.
         var imageY = (e.Item.Height - e.Image.Height) / 2;
-        e.Graphics.DrawImageUnscaled(e.Image, 6, imageY);
+        e.Graphics.DrawImageUnscaled(e.Image, 4, imageY);
     }
 
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
