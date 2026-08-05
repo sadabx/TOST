@@ -20,6 +20,7 @@ or endorsed by OpenSteamTool, Valve, or Steam.
 - Floating icon and system tray controls
 - Automatic OpenSteamTool installation and repair from its official release
 - Drag-and-drop installation for local packages
+- Game Manager for one-click removal and restoration of managed games
 - Automatic Steam detection, file routing, and backups
 - Import notifications, logs, and useful shortcuts
 - Installed and portable builds with update support
@@ -52,6 +53,8 @@ single standalone executable.
   OpenSteamTool release automatically.
 - Drag supported files, folders, or ZIP packages onto the floating icon to
   import local packages.
+- Use `Manage Games` to remove an imported game or restore previously removed
+  files from TOST's recovery folder.
 - Right-click the icon for the menu; double-click it to restart Steam.
 - Double-click the system tray icon to restore a hidden floating icon.
 
@@ -91,6 +94,7 @@ Steam is detected from
 - `View OpenSteamTool Releases`
 - `Open ManifestHub`
 - `Open Steam Folder`
+- `Manage Games`
 - `TOST Settings`
 - `Check for Updates`
 - `Open Logs`
@@ -108,6 +112,22 @@ Installed builds store settings and logs under:
 Portable builds store them beside `TOST.exe`. On first launch, TOST copies
 compatible settings and logs from the previous OST locations when possible.
 
+### Game management
+
+The Game Manager detects entries from `<Steam>\config\lua` and associates
+depot manifests by reading the `addappid(...)` declarations in each Lua file.
+Names come from the local Steam app manifest when available; missing names are
+looked up from the Steam Store and cached locally for offline use.
+Removing a game moves its Lua file and unshared `.manifest` files into:
+
+```text
+<TOST data>\removed-games
+```
+
+Removed files can be restored from the Game Manager. Manifests referenced by
+another Lua file are retained. TOST does not remove `appmanifest_*.acf`, game
+installations, saves, workshop content, or other Steam data.
+
 Installed builds check
 [TOST GitHub Releases](https://github.com/sadabx/TOST/releases) at most once
 every 24 hours. Automatic checks can be disabled in Settings. Portable and raw
@@ -118,6 +138,7 @@ place.
 
 - Only recognized filenames and extensions are copied.
 - Existing files can be backed up before replacement.
+- Managed-game removal is recoverable and protects shared manifest files.
 - ZIP packages with duplicate supported filenames are rejected.
 - Oversized ZIP entries and payloads are rejected.
 - Automatic downloads use the official OpenSteamTool GitHub release.

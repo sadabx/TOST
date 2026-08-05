@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.IO.Compression;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Text.Json;
 using Microsoft.Win32;
@@ -158,6 +159,7 @@ internal sealed class FloatingInstallerForm : Form
         menu.Items.Add(folders);
 
         menu.Items.Add(CreateSeparator());
+        menu.Items.Add(CreateMenuItem("Manage Games", "\uE7FC", (_, _) => OpenGameManager()));
         menu.Items.Add(CreateMenuItem("TOST Settings", "\uE713", (_, _) => OpenSettings()));
         menu.Items.Add(CreateMenuItem("Check for Updates", "\uE895", async (_, _) => await CheckForUpdatesAsync(false)));
         menu.Items.Add(CreateMenuItem("Open Logs", "\uE9D9", (_, _) => OpenFolder(settings.LogDirectory)));
@@ -493,7 +495,7 @@ internal sealed class FloatingInstallerForm : Form
         {
             Timeout = TimeSpan.FromMinutes(5)
         };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("TOST/1.1 (+https://github.com/sadabx/TOST)");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("TOST/1.2 (+https://github.com/sadabx/TOST)");
         return client;
     }
 
@@ -877,6 +879,12 @@ internal sealed class FloatingInstallerForm : Form
             "TOST",
             TostDialogButtons.Ok,
             TostDialogIcon.Success);
+    }
+
+    private void OpenGameManager()
+    {
+        using var dialog = new GameManagerForm(settings, logger, RestartSteam);
+        dialog.ShowDialog(this);
     }
 
     private void ShowReport(CopyReport report)
@@ -1721,6 +1729,1136 @@ internal sealed class TostDialogStatusIcon : Control
     }
 }
 
+internal sealed record ManagedGame(
+    string AppId,
+    string? Name,
+    string LuaPath,
+    IReadOnlyList<string> DepotIds,
+    IReadOnlyList<string> ManifestPaths)
+{
+    public string DisplayName => string.IsNullOrWhiteSpace(Name) ? $"App {AppId}" : Name;
+}
+
+internal sealed class RemovedGameArchive
+{
+    public string ArchiveId { get; set; } = string.Empty;
+    public DateTime RemovedUtc { get; set; }
+    public List<RemovedGameEntry> Games { get; set; } = [];
+    public List<RemovedFileEntry> Files { get; set; } = [];
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string ArchiveDirectory { get; set; } = string.Empty;
+}
+
+internal sealed class RemovedGameEntry
+{
+    public string AppId { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string LuaFileName { get; set; } = string.Empty;
+}
+
+internal sealed class RemovedFileEntry
+{
+    public string Kind { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string ArchiveRelativePath { get; set; } = string.Empty;
+}
+
+internal sealed record GameManagementResult(bool Success, string Message);
+
+internal static class GameManagementService
+{
+    private const long MaxLuaBytes = 8L * 1024 * 1024;
+    private static readonly Regex AddAppIdRegex = new(
+        @"(?im)\baddappid\s*\(\s*(\d+)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex AppManifestNameRegex = new(
+        "(?im)^\\s*\"name\"\\s+\"(?<name>[^\"]+)\"",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    public static List<ManagedGame> FindManagedGames(InstallerSettings settings, InstallerLogger logger)
+    {
+        var games = new List<ManagedGame>();
+        if (!Directory.Exists(settings.LuaPath))
+        {
+            return games;
+        }
+
+        var manifestsByDepot = FindManifestsByDepot(settings.SteamAppsPath, logger);
+        IEnumerable<string> luaFiles;
+        try
+        {
+            luaFiles = Directory.EnumerateFiles(settings.LuaPath, "*.lua", SearchOption.TopDirectoryOnly).ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"Could not scan managed game Lua files: {ex}");
+            throw;
+        }
+
+        foreach (var luaPath in luaFiles.OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var fileInfo = new FileInfo(luaPath);
+                var content = fileInfo.Length <= MaxLuaBytes ? File.ReadAllText(luaPath) : string.Empty;
+                var ids = AddAppIdRegex.Matches(content)
+                    .Select(match => match.Groups[1].Value)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var fileStem = Path.GetFileNameWithoutExtension(luaPath);
+                var appId = fileStem.All(char.IsDigit) && fileStem.Length > 0
+                    ? fileStem
+                    : ids.FirstOrDefault() ?? fileStem;
+                if (ids.Count == 0 && appId.All(char.IsDigit))
+                {
+                    ids.Add(appId);
+                }
+
+                var manifestPaths = ids
+                    .Where(manifestsByDepot.ContainsKey)
+                    .SelectMany(id => manifestsByDepot[id])
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                games.Add(new ManagedGame(
+                    appId,
+                    TryReadGameName(settings.SteamAppsPath, appId, logger),
+                    luaPath,
+                    ids,
+                    manifestPaths));
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Could not inspect managed game Lua file {luaPath}: {ex}");
+            }
+        }
+
+        return games;
+    }
+
+    public static List<RemovedGameArchive> FindRemovedGames(InstallerLogger logger)
+    {
+        var archives = new List<RemovedGameArchive>();
+        if (!Directory.Exists(AppPaths.RemovedGamesDirectory))
+        {
+            return archives;
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(AppPaths.RemovedGamesDirectory))
+        {
+            var metadataPath = Path.Combine(directory, "removal.json");
+            if (!File.Exists(metadataPath))
+            {
+                continue;
+            }
+
+            try
+            {
+                var archive = JsonSerializer.Deserialize<RemovedGameArchive>(File.ReadAllText(metadataPath));
+                if (archive is null || archive.Files.Count == 0)
+                {
+                    continue;
+                }
+
+                archive.ArchiveDirectory = directory;
+                archives.Add(archive);
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Could not read removed game archive {directory}: {ex}");
+            }
+        }
+
+        return archives.OrderByDescending(archive => archive.RemovedUtc).ToList();
+    }
+
+    public static GameManagementResult RemoveGames(
+        IReadOnlyCollection<ManagedGame> selectedGames,
+        IReadOnlyCollection<ManagedGame> allGames,
+        InstallerSettings settings,
+        InstallerLogger logger)
+    {
+        if (selectedGames.Count == 0)
+        {
+            return new GameManagementResult(false, "Select at least one game to remove.");
+        }
+
+        var selectedLuaPaths = selectedGames
+            .Select(game => Path.GetFullPath(game.LuaPath))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var manifestsUsedByOtherGames = allGames
+            .Where(game => !selectedLuaPaths.Contains(Path.GetFullPath(game.LuaPath)))
+            .SelectMany(game => game.ManifestPaths)
+            .Select(Path.GetFullPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var selectedManifests = selectedGames
+            .SelectMany(game => game.ManifestPaths)
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var manifestsToMove = selectedManifests
+            .Where(path => !manifestsUsedByOtherGames.Contains(path))
+            .ToList();
+        var sharedManifestCount = selectedManifests.Count - manifestsToMove.Count;
+
+        var archiveId = $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}";
+        var archiveDirectory = Path.Combine(AppPaths.RemovedGamesDirectory, archiveId);
+        var archive = new RemovedGameArchive
+        {
+            ArchiveId = archiveId,
+            RemovedUtc = DateTime.UtcNow,
+            ArchiveDirectory = archiveDirectory,
+            Games = selectedGames.Select(game => new RemovedGameEntry
+            {
+                AppId = game.AppId,
+                DisplayName = game.DisplayName,
+                LuaFileName = Path.GetFileName(game.LuaPath)
+            }).ToList()
+        };
+
+        var movedFiles = new List<(string Source, string ArchivePath)>();
+        try
+        {
+            foreach (var game in selectedGames)
+            {
+                AddArchiveFile(archive, "Lua", game.LuaPath, settings.LuaPath);
+            }
+
+            foreach (var manifestPath in manifestsToMove)
+            {
+                AddArchiveFile(archive, "Manifest", manifestPath, settings.SteamAppsPath);
+            }
+
+            Directory.CreateDirectory(archiveDirectory);
+            foreach (var file in archive.Files)
+            {
+                var sourceRoot = file.Kind == "Lua" ? settings.LuaPath : settings.SteamAppsPath;
+                var source = Path.Combine(sourceRoot, file.FileName);
+                var archivePath = Path.Combine(archiveDirectory, file.ArchiveRelativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(archivePath)!);
+                File.Move(source, archivePath);
+                movedFiles.Add((source, archivePath));
+                logger.Info($"Archived managed game file {source} -> {archivePath}");
+            }
+
+            var metadataPath = Path.Combine(archiveDirectory, "removal.json");
+            File.WriteAllText(
+                metadataPath,
+                JsonSerializer.Serialize(archive, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex)
+        {
+            RollBackRemoval(movedFiles, logger);
+            TryDeleteArchiveDirectory(archiveDirectory, logger);
+            logger.Error($"Managed game removal failed: {ex}");
+            return new GameManagementResult(false, $"Could not remove the selected games.\n\n{ex.Message}");
+        }
+
+        var message = $"Moved {archive.Files.Count} file{(archive.Files.Count == 1 ? string.Empty : "s")} to TOST's recovery folder.";
+        if (sharedManifestCount > 0)
+        {
+            message += $"\n\nKept {sharedManifestCount} shared manifest{(sharedManifestCount == 1 ? string.Empty : "s")} still used by another Lua file.";
+        }
+
+        message += "\n\nRestart Steam for the change to take effect.";
+        return new GameManagementResult(true, message);
+    }
+
+    public static GameManagementResult RestoreArchive(
+        RemovedGameArchive archive,
+        InstallerSettings settings,
+        InstallerLogger logger)
+    {
+        if (!IsPathInside(archive.ArchiveDirectory, AppPaths.RemovedGamesDirectory))
+        {
+            return new GameManagementResult(false, "The recovery archive path is invalid.");
+        }
+
+        var moves = new List<(string ArchivePath, string Destination)>();
+        foreach (var file in archive.Files)
+        {
+            if (!IsValidArchiveFile(file))
+            {
+                return new GameManagementResult(false, $"The recovery entry for {file.FileName} is invalid.");
+            }
+
+            var archivePath = Path.GetFullPath(Path.Combine(archive.ArchiveDirectory, file.ArchiveRelativePath));
+            var destinationRoot = file.Kind == "Lua" ? settings.LuaPath : settings.SteamAppsPath;
+            var destination = Path.GetFullPath(Path.Combine(destinationRoot, file.FileName));
+            if (!IsPathInside(archivePath, archive.ArchiveDirectory) ||
+                !IsPathInside(destination, destinationRoot) ||
+                !File.Exists(archivePath))
+            {
+                return new GameManagementResult(false, $"The recovery file {file.FileName} is missing or invalid.");
+            }
+
+            if (File.Exists(destination))
+            {
+                return new GameManagementResult(false, $"Cannot restore {file.FileName} because a file with that name already exists.");
+            }
+
+            moves.Add((archivePath, destination));
+        }
+
+        var completedMoves = new List<(string ArchivePath, string Destination)>();
+        try
+        {
+            foreach (var move in moves)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(move.Destination)!);
+                File.Move(move.ArchivePath, move.Destination);
+                completedMoves.Add(move);
+                logger.Info($"Restored managed game file {move.ArchivePath} -> {move.Destination}");
+            }
+
+            Directory.Delete(archive.ArchiveDirectory, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            foreach (var move in completedMoves.AsEnumerable().Reverse())
+            {
+                try
+                {
+                    if (File.Exists(move.Destination) && !File.Exists(move.ArchivePath))
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(move.ArchivePath)!);
+                        File.Move(move.Destination, move.ArchivePath);
+                    }
+                }
+                catch (Exception rollbackException)
+                {
+                    logger.Error($"Could not roll back restored file {move.Destination}: {rollbackException}");
+                }
+            }
+
+            logger.Error($"Managed game restore failed: {ex}");
+            return new GameManagementResult(false, $"Could not restore the selected games.\n\n{ex.Message}");
+        }
+
+        return new GameManagementResult(
+            true,
+            $"Restored {moves.Count} file{(moves.Count == 1 ? string.Empty : "s")}.\n\nRestart Steam for the change to take effect.");
+    }
+
+    private static Dictionary<string, List<string>> FindManifestsByDepot(string steamAppsPath, InstallerLogger logger)
+    {
+        var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        if (!Directory.Exists(steamAppsPath))
+        {
+            return result;
+        }
+
+        try
+        {
+            foreach (var manifestPath in Directory.EnumerateFiles(steamAppsPath, "*.manifest", SearchOption.TopDirectoryOnly))
+            {
+                var fileStem = Path.GetFileNameWithoutExtension(manifestPath);
+                var separatorIndex = fileStem.IndexOf('_');
+                var depotId = separatorIndex >= 0 ? fileStem[..separatorIndex] : fileStem;
+                if (depotId.Length == 0 || !depotId.All(char.IsDigit))
+                {
+                    continue;
+                }
+
+                if (!result.TryGetValue(depotId, out var paths))
+                {
+                    paths = [];
+                    result[depotId] = paths;
+                }
+
+                paths.Add(manifestPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"Could not scan Steam manifest files: {ex}");
+            throw;
+        }
+
+        return result;
+    }
+
+    private static string? TryReadGameName(string steamAppsPath, string appId, InstallerLogger logger)
+    {
+        if (appId.Length == 0 || !appId.All(char.IsDigit))
+        {
+            return null;
+        }
+
+        var appManifestPath = Path.Combine(steamAppsPath, $"appmanifest_{appId}.acf");
+        if (!File.Exists(appManifestPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var match = AppManifestNameRegex.Match(File.ReadAllText(appManifestPath));
+            return match.Success ? match.Groups["name"].Value : null;
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"Could not read game name from {appManifestPath}: {ex}");
+            return null;
+        }
+    }
+
+    private static void AddArchiveFile(RemovedGameArchive archive, string kind, string sourcePath, string allowedRoot)
+    {
+        var fullSourcePath = Path.GetFullPath(sourcePath);
+        if (!IsPathInside(fullSourcePath, allowedRoot) || !File.Exists(fullSourcePath))
+        {
+            throw new InvalidDataException($"The managed file path is invalid: {sourcePath}");
+        }
+
+        var fileName = Path.GetFileName(fullSourcePath);
+        if (archive.Files.Any(file =>
+                file.Kind.Equals(kind, StringComparison.OrdinalIgnoreCase) &&
+                file.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var folder = kind == "Lua" ? "lua" : "steamapps";
+        archive.Files.Add(new RemovedFileEntry
+        {
+            Kind = kind,
+            FileName = fileName,
+            ArchiveRelativePath = Path.Combine("files", folder, fileName)
+        });
+    }
+
+    private static bool IsValidArchiveFile(RemovedFileEntry file)
+    {
+        if (string.IsNullOrWhiteSpace(file.FileName) ||
+            !file.FileName.Equals(Path.GetFileName(file.FileName), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return file.Kind switch
+        {
+            "Lua" => Path.GetExtension(file.FileName).Equals(".lua", StringComparison.OrdinalIgnoreCase),
+            "Manifest" => Path.GetExtension(file.FileName).Equals(".manifest", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
+    private static bool IsPathInside(string path, string root)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        return fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void RollBackRemoval(
+        IEnumerable<(string Source, string ArchivePath)> movedFiles,
+        InstallerLogger logger)
+    {
+        foreach (var movedFile in movedFiles.Reverse())
+        {
+            try
+            {
+                if (File.Exists(movedFile.ArchivePath) && !File.Exists(movedFile.Source))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(movedFile.Source)!);
+                    File.Move(movedFile.ArchivePath, movedFile.Source);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Could not roll back removed file {movedFile.Source}: {ex}");
+            }
+        }
+    }
+
+    private static void TryDeleteArchiveDirectory(string archiveDirectory, InstallerLogger logger)
+    {
+        try
+        {
+            if (Directory.Exists(archiveDirectory) && IsPathInside(archiveDirectory, AppPaths.RemovedGamesDirectory))
+            {
+                Directory.Delete(archiveDirectory, recursive: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"Could not clean failed removal archive {archiveDirectory}: {ex}");
+        }
+    }
+}
+
+internal static class SteamGameNameResolver
+{
+    private const long MaxResponseBytes = 1024 * 1024;
+    private static readonly HttpClient HttpClient = CreateHttpClient();
+
+    public static async Task<IReadOnlyDictionary<string, string>> ResolveAsync(
+        IEnumerable<string> appIds,
+        InstallerLogger logger,
+        CancellationToken cancellationToken)
+    {
+        var cache = LoadCache(logger);
+        var requestedIds = appIds
+            .Where(appId => !string.IsNullOrWhiteSpace(appId) && appId.All(char.IsDigit))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var missingIds = requestedIds.Where(appId => !cache.ContainsKey(appId)).ToList();
+        var cacheChanged = false;
+
+        foreach (var appId in missingIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var name = await FetchNameAsync(appId, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    cache[appId] = name;
+                    cacheChanged = true;
+                }
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.Error($"Steam name lookup timed out for App {appId}.");
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Could not look up the Steam name for App {appId}: {ex.Message}");
+            }
+        }
+
+        if (cacheChanged)
+        {
+            SaveCache(cache, logger);
+        }
+
+        return cache
+            .Where(pair => requestedIds.Contains(pair.Key, StringComparer.Ordinal))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
+    private static async Task<string?> FetchNameAsync(string appId, CancellationToken cancellationToken)
+    {
+        var url = $"https://store.steampowered.com/api/appdetails?appids={appId}&filters=basic&l=english";
+        using var response = await HttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        if (response.Content.Headers.ContentLength is > MaxResponseBytes)
+        {
+            throw new InvalidDataException("The Steam Store response was larger than expected.");
+        }
+
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var limitedStream = new LimitedReadStream(responseStream, MaxResponseBytes);
+        using var document = await JsonDocument.ParseAsync(limitedStream, cancellationToken: cancellationToken);
+        if (!document.RootElement.TryGetProperty(appId, out var app) ||
+            !app.TryGetProperty("success", out var success) ||
+            !success.GetBoolean() ||
+            !app.TryGetProperty("data", out var data) ||
+            !data.TryGetProperty("name", out var nameElement))
+        {
+            return null;
+        }
+
+        return nameElement.GetString()?.Trim();
+    }
+
+    private static Dictionary<string, string> LoadCache(InstallerLogger logger)
+    {
+        try
+        {
+            if (!File.Exists(AppPaths.GameNamesCachePath))
+            {
+                return new Dictionary<string, string>(StringComparer.Ordinal);
+            }
+
+            var cachedNames = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                File.ReadAllText(AppPaths.GameNamesCachePath));
+            return cachedNames is null
+                ? new Dictionary<string, string>(StringComparer.Ordinal)
+                : new Dictionary<string, string>(cachedNames, StringComparer.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"Could not read the Steam game-name cache: {ex.Message}");
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+    }
+
+    private static void SaveCache(Dictionary<string, string> cache, InstallerLogger logger)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.DataDirectory);
+            File.WriteAllText(
+                AppPaths.GameNamesCachePath,
+                JsonSerializer.Serialize(cache, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"Could not save the Steam game-name cache: {ex.Message}");
+        }
+    }
+
+    private static HttpClient CreateHttpClient()
+    {
+        var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(10)
+        };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("TOST/1.2 (+https://github.com/sadabx/TOST)");
+        return client;
+    }
+
+    private sealed class LimitedReadStream(Stream inner, long maximumBytes) : Stream
+    {
+        private long bytesRead;
+
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => bytesRead;
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var read = inner.Read(buffer, offset, count);
+            TrackBytes(read);
+            return read;
+        }
+
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            var read = await inner.ReadAsync(buffer, cancellationToken);
+            TrackBytes(read);
+            return read;
+        }
+
+        private void TrackBytes(int count)
+        {
+            bytesRead += count;
+            if (bytesRead > maximumBytes)
+            {
+                throw new InvalidDataException("The Steam Store response was larger than expected.");
+            }
+        }
+
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+}
+
+internal static class WindowTheme
+{
+    private const int UseImmersiveDarkMode = 20;
+    private const int UseImmersiveDarkModeBefore20H1 = 19;
+    private const int CaptionColor = 35;
+    private const int TextColor = 36;
+
+    public static void ApplyDarkTitleBar(Form form)
+    {
+        form.HandleCreated += (_, _) => ApplyDarkTitleBar(form.Handle);
+        if (form.IsHandleCreated)
+        {
+            ApplyDarkTitleBar(form.Handle);
+        }
+    }
+
+    private static void ApplyDarkTitleBar(IntPtr handle)
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763))
+        {
+            return;
+        }
+
+        var enabled = 1;
+        var result = DwmSetWindowAttribute(
+            handle,
+            UseImmersiveDarkMode,
+            ref enabled,
+            sizeof(int));
+        if (result != 0)
+        {
+            DwmSetWindowAttribute(
+                handle,
+                UseImmersiveDarkModeBefore20H1,
+                ref enabled,
+                sizeof(int));
+        }
+
+        var captionColor = ToColorRef(Color.FromArgb(35, 36, 38));
+        var textColor = ToColorRef(Color.FromArgb(232, 234, 236));
+        DwmSetWindowAttribute(handle, CaptionColor, ref captionColor, sizeof(int));
+        DwmSetWindowAttribute(handle, TextColor, ref textColor, sizeof(int));
+    }
+
+    private static int ToColorRef(Color color) =>
+        color.R | color.G << 8 | color.B << 16;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(
+        IntPtr windowHandle,
+        int attribute,
+        ref int attributeValue,
+        int attributeSize);
+}
+
+internal sealed class DarkTabControl : TabControl
+{
+    private static readonly Color SurfaceColor = Color.FromArgb(35, 36, 38);
+    private static readonly Color SelectedColor = Color.FromArgb(29, 30, 32);
+    private static readonly Color BorderColor = Color.FromArgb(73, 75, 78);
+    private static readonly Color TextColor = Color.FromArgb(232, 234, 236);
+    private static readonly Color MutedTextColor = Color.FromArgb(174, 179, 184);
+
+    public DarkTabControl()
+    {
+        SetStyle(
+            ControlStyles.UserPaint |
+            ControlStyles.AllPaintingInWmPaint |
+            ControlStyles.OptimizedDoubleBuffer,
+            true);
+        SizeMode = TabSizeMode.Fixed;
+        ItemSize = new Size(142, 34);
+        BackColor = SurfaceColor;
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        e.Graphics.Clear(SurfaceColor);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        e.Graphics.Clear(SurfaceColor);
+
+        var pageBounds = DisplayRectangle;
+        using (var borderPen = new Pen(BorderColor))
+        {
+            e.Graphics.DrawRectangle(
+                borderPen,
+                pageBounds.X - 1,
+                pageBounds.Y - 1,
+                pageBounds.Width + 1,
+                pageBounds.Height + 1);
+        }
+
+        for (var index = 0; index < TabCount; index++)
+        {
+            var tabBounds = GetTabRect(index);
+            var selected = index == SelectedIndex;
+            using var backgroundBrush = new SolidBrush(selected ? SelectedColor : SurfaceColor);
+            e.Graphics.FillRectangle(backgroundBrush, tabBounds);
+
+            if (selected)
+            {
+                using var accentBrush = new SolidBrush(Color.FromArgb(47, 184, 75));
+                e.Graphics.FillRectangle(accentBrush, tabBounds.Left, tabBounds.Bottom - 2, tabBounds.Width, 2);
+            }
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                TabPages[index].Text,
+                Font,
+                tabBounds,
+                selected ? TextColor : MutedTextColor,
+                TextFormatFlags.HorizontalCenter |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.EndEllipsis |
+                TextFormatFlags.NoPrefix);
+        }
+    }
+
+    protected override void OnSelectedIndexChanged(EventArgs e)
+    {
+        base.OnSelectedIndexChanged(e);
+        Invalidate();
+    }
+}
+
+internal sealed class GameManagerForm : Form
+{
+    private readonly InstallerSettings settings;
+    private readonly InstallerLogger logger;
+    private readonly Action restartSteam;
+    private readonly CancellationTokenSource closingCancellation = new();
+    private readonly ListView managedGamesList = CreateListView();
+    private readonly ListView removedGamesList = CreateListView();
+    private List<ManagedGame> managedGames = [];
+    private List<RemovedGameArchive> removedArchives = [];
+
+    public GameManagerForm(InstallerSettings settings, InstallerLogger logger, Action restartSteam)
+    {
+        this.settings = settings;
+        this.logger = logger;
+        this.restartSteam = restartSteam;
+
+        Text = "TOST Game Manager";
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        StartPosition = FormStartPosition.CenterParent;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        ClientSize = new Size(760, 500);
+        BackColor = Color.FromArgb(35, 36, 38);
+        ForeColor = Color.FromArgb(232, 234, 236);
+        Font = new Font("Segoe UI", 9.5f);
+        WindowTheme.ApplyDarkTitleBar(this);
+
+        managedGamesList.Columns.Add("Game", 250);
+        managedGamesList.Columns.Add("App ID", 100);
+        managedGamesList.Columns.Add("Lua file", 220);
+        managedGamesList.Columns.Add("Manifests", 90);
+
+        removedGamesList.Columns.Add("Removed", 150);
+        removedGamesList.Columns.Add("Games", 430);
+        removedGamesList.Columns.Add("Files", 80);
+
+        var tabs = new DarkTabControl
+        {
+            Dock = DockStyle.Fill
+        };
+        tabs.TabPages.Add(CreateManagedGamesPage());
+        tabs.TabPages.Add(CreateRemovedGamesPage());
+
+        Controls.Add(tabs);
+        Shown += async (_, _) => await RefreshListsAsync();
+        FormClosed += (_, _) => closingCancellation.Cancel();
+    }
+
+    private TabPage CreateManagedGamesPage()
+    {
+        var page = CreateTabPage("Managed Games");
+        var description = CreateDescriptionLabel(
+            "Games detected from Steam's config\\lua folder. Removal moves only the Lua file and its unshared depot manifests into TOST's recovery folder.");
+        var removeButton = CreateActionButton("Remove Selected", primary: true);
+        removeButton.Location = new Point(14, 10);
+        removeButton.Click += (_, _) => RemoveSelectedGames();
+        var refreshButton = CreateActionButton("Refresh", primary: false);
+        refreshButton.Location = new Point(removeButton.Right + 8, 10);
+        refreshButton.Click += async (_, _) => await RefreshListsAsync();
+
+        var actionBar = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 52,
+            BackColor = Color.FromArgb(31, 32, 34)
+        };
+        actionBar.Controls.Add(removeButton);
+        actionBar.Controls.Add(refreshButton);
+
+        managedGamesList.Dock = DockStyle.Fill;
+        page.Controls.Add(managedGamesList);
+        page.Controls.Add(actionBar);
+        page.Controls.Add(description);
+        return page;
+    }
+
+    private TabPage CreateRemovedGamesPage()
+    {
+        var page = CreateTabPage("Recovery");
+        var description = CreateDescriptionLabel(
+            "Files removed through TOST remain recoverable here. Restore returns them to the current Steam folder without overwriting existing files.");
+        var restoreButton = CreateActionButton("Restore Selected", primary: true);
+        restoreButton.Location = new Point(14, 10);
+        restoreButton.Click += (_, _) => RestoreSelectedArchive();
+
+        var actionBar = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 52,
+            BackColor = Color.FromArgb(31, 32, 34)
+        };
+        actionBar.Controls.Add(restoreButton);
+
+        removedGamesList.Dock = DockStyle.Fill;
+        page.Controls.Add(removedGamesList);
+        page.Controls.Add(actionBar);
+        page.Controls.Add(description);
+        return page;
+    }
+
+    private async Task RefreshListsAsync()
+    {
+        UseWaitCursor = true;
+        try
+        {
+            managedGames = GameManagementService.FindManagedGames(settings, logger);
+            removedArchives = GameManagementService.FindRemovedGames(logger);
+            PopulateManagedGames();
+            PopulateRemovedGames();
+
+            var missingIds = managedGames
+                .Where(game => string.IsNullOrWhiteSpace(game.Name))
+                .Select(game => game.AppId)
+                .ToList();
+            if (missingIds.Count == 0)
+            {
+                return;
+            }
+
+            var resolvedNames = await SteamGameNameResolver.ResolveAsync(
+                missingIds,
+                logger,
+                closingCancellation.Token);
+            managedGames = managedGames
+                .Select(game => resolvedNames.TryGetValue(game.AppId, out var name)
+                    ? game with { Name = name }
+                    : game)
+                .ToList();
+            PopulateManagedGames();
+        }
+        catch (OperationCanceledException) when (closingCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            logger.Error($"Could not refresh Game Manager: {ex}");
+            TostDialog.Show(
+                this,
+                $"Could not scan the Steam folders.\n\n{ex.Message}",
+                "TOST Game Manager",
+                TostDialogButtons.Ok,
+                TostDialogIcon.Warning);
+        }
+        finally
+        {
+            UseWaitCursor = false;
+        }
+    }
+
+    private void PopulateManagedGames()
+    {
+        managedGamesList.BeginUpdate();
+        managedGamesList.Items.Clear();
+        foreach (var game in managedGames)
+        {
+            var item = new ListViewItem(game.DisplayName)
+            {
+                Tag = game
+            };
+            item.SubItems.Add(game.AppId);
+            item.SubItems.Add(Path.GetFileName(game.LuaPath));
+            item.SubItems.Add(game.ManifestPaths.Count.ToString());
+            managedGamesList.Items.Add(item);
+        }
+
+        if (managedGamesList.Items.Count == 0)
+        {
+            managedGamesList.Items.Add(new ListViewItem("No managed game Lua files were found.")
+            {
+                ForeColor = Color.FromArgb(151, 157, 164)
+            });
+        }
+
+        managedGamesList.EndUpdate();
+    }
+
+    private void PopulateRemovedGames()
+    {
+        removedGamesList.BeginUpdate();
+        removedGamesList.Items.Clear();
+        foreach (var archive in removedArchives)
+        {
+            var gameNames = string.Join(", ", archive.Games.Select(game => game.DisplayName));
+            var item = new ListViewItem(archive.RemovedUtc.ToLocalTime().ToString("g"))
+            {
+                Tag = archive
+            };
+            item.SubItems.Add(gameNames);
+            item.SubItems.Add(archive.Files.Count.ToString());
+            removedGamesList.Items.Add(item);
+        }
+
+        if (removedGamesList.Items.Count == 0)
+        {
+            removedGamesList.Items.Add(new ListViewItem("No removed games are available to restore.")
+            {
+                ForeColor = Color.FromArgb(151, 157, 164)
+            });
+        }
+
+        removedGamesList.EndUpdate();
+    }
+
+    private void RemoveSelectedGames()
+    {
+        var selectedGames = managedGamesList.CheckedItems
+            .Cast<ListViewItem>()
+            .Select(item => item.Tag)
+            .OfType<ManagedGame>()
+            .ToList();
+        if (selectedGames.Count == 0)
+        {
+            ShowSelectionRequired("Select one or more managed games first.");
+            return;
+        }
+
+        var names = string.Join("\n", selectedGames.Select(game => $"• {game.DisplayName} ({game.AppId})"));
+        var confirmation = TostDialog.Show(
+            this,
+            $"Remove the following games from OpenSteamTool?\n\n{names}\n\nFiles will be moved to TOST's recovery folder and can be restored.",
+            "Remove Managed Games",
+            TostDialogButtons.YesNo,
+            TostDialogIcon.Warning);
+        if (confirmation != DialogResult.Yes)
+        {
+            return;
+        }
+
+        var result = GameManagementService.RemoveGames(selectedGames, managedGames, settings, logger);
+        TostDialog.Show(
+            this,
+            result.Message,
+            "TOST Game Manager",
+            TostDialogButtons.Ok,
+            result.Success ? TostDialogIcon.Success : TostDialogIcon.Warning);
+        if (!result.Success)
+        {
+            return;
+        }
+
+        _ = RefreshListsAsync();
+        OfferSteamRestart();
+    }
+
+    private void RestoreSelectedArchive()
+    {
+        var selectedArchives = removedGamesList.CheckedItems
+            .Cast<ListViewItem>()
+            .Select(item => item.Tag)
+            .OfType<RemovedGameArchive>()
+            .ToList();
+        if (selectedArchives.Count != 1)
+        {
+            ShowSelectionRequired("Select exactly one recovery entry to restore.");
+            return;
+        }
+
+        var archive = selectedArchives[0];
+        var names = string.Join(", ", archive.Games.Select(game => game.DisplayName));
+        var confirmation = TostDialog.Show(
+            this,
+            $"Restore {names}?\n\nExisting files will not be overwritten.",
+            "Restore Managed Games",
+            TostDialogButtons.YesNo,
+            TostDialogIcon.Information);
+        if (confirmation != DialogResult.Yes)
+        {
+            return;
+        }
+
+        var result = GameManagementService.RestoreArchive(archive, settings, logger);
+        TostDialog.Show(
+            this,
+            result.Message,
+            "TOST Game Manager",
+            TostDialogButtons.Ok,
+            result.Success ? TostDialogIcon.Success : TostDialogIcon.Warning);
+        if (!result.Success)
+        {
+            return;
+        }
+
+        _ = RefreshListsAsync();
+        OfferSteamRestart();
+    }
+
+    private void OfferSteamRestart()
+    {
+        var restart = TostDialog.Show(
+            this,
+            "Restart Steam now to apply the change?",
+            "TOST Game Manager",
+            TostDialogButtons.YesNo,
+            TostDialogIcon.Information);
+        if (restart == DialogResult.Yes)
+        {
+            restartSteam();
+        }
+    }
+
+    private void ShowSelectionRequired(string message)
+    {
+        TostDialog.Show(
+            this,
+            message,
+            "TOST Game Manager",
+            TostDialogButtons.Ok,
+            TostDialogIcon.Information);
+    }
+
+    private static ListView CreateListView()
+    {
+        return new ListView
+        {
+            View = View.Details,
+            CheckBoxes = true,
+            FullRowSelect = true,
+            GridLines = false,
+            HideSelection = false,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = Color.FromArgb(29, 30, 32),
+            ForeColor = Color.FromArgb(232, 234, 236),
+            Font = new Font("Segoe UI", 9.5f)
+        };
+    }
+
+    private static TabPage CreateTabPage(string text)
+    {
+        return new TabPage(text)
+        {
+            BackColor = Color.FromArgb(35, 36, 38),
+            ForeColor = Color.FromArgb(232, 234, 236),
+            Padding = new Padding(10)
+        };
+    }
+
+    private static Label CreateDescriptionLabel(string text)
+    {
+        return new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 54,
+            Padding = new Padding(2, 6, 2, 6),
+            Text = text,
+            ForeColor = Color.FromArgb(174, 179, 184),
+            BackColor = Color.FromArgb(35, 36, 38)
+        };
+    }
+
+    private static Button CreateActionButton(string text, bool primary)
+    {
+        var button = new Button
+        {
+            AutoSize = false,
+            FlatStyle = FlatStyle.Flat,
+            Size = new Size(132, 32),
+            Text = text,
+            Font = new Font("Segoe UI Semibold", 9.5f),
+            ForeColor = Color.White,
+            BackColor = primary ? Color.FromArgb(33, 150, 57) : Color.FromArgb(63, 65, 68),
+            Cursor = Cursors.Hand
+        };
+        button.FlatAppearance.BorderColor = primary
+            ? Color.FromArgb(48, 183, 73)
+            : Color.FromArgb(82, 84, 87);
+        button.FlatAppearance.MouseOverBackColor = primary
+            ? Color.FromArgb(39, 166, 64)
+            : Color.FromArgb(75, 77, 80);
+        return button;
+    }
+}
+
 internal sealed class SettingsForm : Form
 {
     private readonly InstallerSettings settings;
@@ -1741,6 +2879,7 @@ internal sealed class SettingsForm : Form
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
         ClientSize = new Size(520, 270);
+        WindowTheme.ApplyDarkTitleBar(this);
 
         var steamRootLabel = new Label
         {
@@ -1854,6 +2993,8 @@ internal static class AppPaths
     public static string SettingsPath => Path.Combine(DataDirectory, "installer-settings.json");
     public static string LogDirectory => Path.Combine(DataDirectory, "logs");
     public static string LogPath => Path.Combine(LogDirectory, "install.log");
+    public static string RemovedGamesDirectory => Path.Combine(DataDirectory, "removed-games");
+    public static string GameNamesCachePath => Path.Combine(DataDirectory, "steam-game-names.json");
 
     public static void Initialize()
     {
