@@ -1,7 +1,6 @@
 ## What's new
 
-- Added automatic OpenSteamTool installation and repair.
-- TOST now resolves and downloads the latest official OpenSteamTool release ZIP.
-- Downloads and extracted payloads are size-limited and temporary files are
-  removed after installation.
-- Local ZIP and file installation remains available through drag-and-drop.
+- Replaced native Windows message boxes with consistent TOST-styled dialogs.
+- Added branded success, information, and warning states.
+- Added scrollable message content for long installation and error reports.
+- Preserved confirmation prompts for automatic TOST updates.
