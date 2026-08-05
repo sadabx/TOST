@@ -157,9 +157,20 @@ TOST/
 |   |-- logo-128.png          Embedded floating-window logo
 |   |-- logo-512.png          High-resolution logo
 |   `-- opensteamtool.ico     Application and installer icon
+|-- Infrastructure/           Paths, settings, logging, and Windows theming
+|-- Models/                   Installation and game-management data models
+|-- Services/                 Game discovery, removal, recovery, and name lookup
+|-- UI/
+|   |-- Controls/             Reusable dark-themed WinForms controls
+|   |-- FloatingInstallerForm.cs
+|   |-- FloatingInstallerForm.Installation.cs
+|   |-- DropToastForm.cs
+|   |-- GameManagerForm.cs
+|   |-- SettingsForm.cs
+|   `-- TostDialog.cs
 |-- .gitignore
 |-- LICENSE
-|-- Program.cs                WinForms application
+|-- Program.cs                Application startup and single-instance handling
 |-- README.md
 |-- TOST.csproj               .NET project
 |-- build-release.ps1         Windows build and packaging script
