@@ -5,6 +5,20 @@ TOST automatically downloads and installs the latest official OpenSteamTool [rel
 
 Built around the separately maintained [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool) project, it’s not the closed-source SteamTools app and has no ownership, maintenance, or endorsement from OpenSteamTool, Valve, or Steam.
 
+## Linux development
+
+Early Linux support lives in `TOST.Core` and `TOST.Linux`. The current CLI only
+detects native and Flatpak Steam installations; it does not install SLSsteam or
+import game files yet.
+
+```bash
+dotnet run --project TOST.Linux -- status
+```
+
+Set `STEAM_DIR` when Steam uses a custom root. The Linux implementation will not
+claim that library visibility guarantees download entitlement, launch support,
+multiplayer, or anti-cheat compatibility.
+
 ## Screenshots
 <details>
 <summary>Click to expand screenshots</summary>

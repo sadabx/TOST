@@ -24,6 +24,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Nested projects are built independently; do not glob their sources into WinForms. -->
+    <Compile Remove="TOST.Core\**\*.cs" />
+    <Compile Remove="TOST.Linux\**\*.cs" />
+    <EmbeddedResource Remove="TOST.Core\**\*" />
+    <EmbeddedResource Remove="TOST.Linux\**\*" />
+    <None Remove="TOST.Core\**\*" />
+    <None Remove="TOST.Linux\**\*" />
+
     <None Include="Assets\opensteamtool.ico" Pack="true" PackagePath="\" />
     <EmbeddedResource Include="Assets\logo-128.png" LogicalName="TOST.Assets.logo-128.png" />
     <Content Include="Assets\logo-128.png" CopyToOutputDirectory="PreserveNewest" />
