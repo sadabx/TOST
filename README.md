@@ -1,19 +1,20 @@
 # TOST
-**Trionine open-source installer for OpenSteamTool**
+**TRIONINE OPEN STEAM TOOL**
 
-TOST is an independent Windows utility created and maintained by
-[sadabx](https://github.com/sadabx). It downloads and installs the latest
-official OpenSteamTool release, and provides a floating desktop icon for
-routing supported local files into the correct Steam directories.
+TOST automatically downloads and installs the latest official OpenSteamTool [release](https://github.com/OpenSteam001/OpenSteamTool/releases) and offers a floating desktop icon for routing supported local files to the right Steam directories. 
 
-TOST is built around the separately maintained
-[OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool) project. It is
-not the closed-source SteamTools application, and it is not owned, maintained,
-or endorsed by OpenSteamTool, Valve, or Steam.
+Built around the separately maintained [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool) project, it’s not the closed-source SteamTools app and has no ownership, maintenance, or endorsement from OpenSteamTool, Valve, or Steam.
 
-## Preview
+## Screenshots
+<details>
+<summary>Click to expand screenshots</summary>
 
-![TOST floating installer menu](Assets/TOST.png)
+### Menu
+![TOST menu](Assets/ss/TOST.png)
+
+### Game Manager
+![TOST Game Manager](Assets/ss/game-manager.png)
+</details>
 
 ## Features
 
@@ -153,7 +154,9 @@ TOST/
 |-- .config/
 |   `-- dotnet-tools.json     Pinned Velopack CLI
 |-- Assets/
-|   |-- TOST.png              README preview
+|   |-- ss/
+|   |   |-- TOST.png          Floating-menu preview
+|   |   `-- game-manager.png  Game Manager preview
 |   |-- logo-128.png          Embedded floating-window logo
 |   |-- logo-512.png          High-resolution logo
 |   `-- opensteamtool.ico     Application and installer icon
@@ -176,15 +179,15 @@ TOST/
 `-- build-release.ps1         Windows build and packaging script
 ```
 
-Generated `bin/`, `obj/`, `artifacts/`, and `Releases/` directories are not
-committed.
+<!-- Generated `bin/`, `obj/`, `artifacts/`, and `Releases/` directories are not
+committed. -->
 
 ## Credits
 
 ### TOST
 
-Created and maintained by [sadabx](https://github.com/sadabx) under
-[Trionine](https://trionine.com/).
+ Developed and maintained by [sadabx](https://github.com/sadabx) under
+[TRIONINE](https://trionine.com/).
 
 ### OpenSteamTool
 
