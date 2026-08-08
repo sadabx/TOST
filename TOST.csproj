@@ -6,7 +6,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationIcon>Assets\opensteamtool.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\tost.ico</ApplicationIcon>
     <AssemblyName>TOST</AssemblyName>
     <RootNamespace>Trionine.TOST</RootNamespace>
     <Version>1.2.0</Version>
@@ -26,16 +26,18 @@
   <ItemGroup>
     <!-- Nested projects are built independently; do not glob their sources into WinForms. -->
     <Compile Remove="TOST.Core\**\*.cs" />
+    <Compile Remove="TOST.Core.Tests\**\*.cs" />
     <Compile Remove="TOST.Linux\**\*.cs" />
     <EmbeddedResource Remove="TOST.Core\**\*" />
+    <EmbeddedResource Remove="TOST.Core.Tests\**\*" />
     <EmbeddedResource Remove="TOST.Linux\**\*" />
     <None Remove="TOST.Core\**\*" />
+    <None Remove="TOST.Core.Tests\**\*" />
     <None Remove="TOST.Linux\**\*" />
 
-    <None Include="Assets\opensteamtool.ico" Pack="true" PackagePath="\" />
-    <EmbeddedResource Include="Assets\logo-128.png" LogicalName="TOST.Assets.logo-128.png" />
-    <Content Include="Assets\logo-128.png" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Assets\logo-512.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\tost.ico" Pack="true" PackagePath="\" />
+    <EmbeddedResource Include="Assets\TOST.png" LogicalName="TOST.Assets.TOST.png" />
+    <Content Include="Assets\TOST.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

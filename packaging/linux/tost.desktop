@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=TOST
+Comment=Manage TOST Steam integrations on Linux
+Exec=tost
+Icon=tost
+Terminal=true
+Categories=Utility;System;
+Keywords=Steam;SLSsteam;TOST;

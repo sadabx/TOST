@@ -6,6 +6,17 @@
     <Nullable>enable</Nullable>
     <AssemblyName>tost</AssemblyName>
     <RootNamespace>Trionine.TOST.Linux</RootNamespace>
+    <Version>1.2.0</Version>
+    <Title>TOST Linux CLI</Title>
+    <Product>TOST</Product>
+    <Company>Trionine</Company>
+    <Authors>Sadabx</Authors>
+    <Description>Cross-platform TOST command-line frontend for Linux Steam integrations</Description>
+    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>

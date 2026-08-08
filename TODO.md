@@ -7,7 +7,7 @@
 # Cross-platform architecture
 
 - [ ] Extract platform-neutral game, archive, logging, and configuration logic into `TOST.Core`.
-- [ ] Define an integration-provider interface shared by OpenSteamTool and SLSsteam.
+- [x] Define an integration-provider interface shared by OpenSteamTool and SLSsteam.
 - [ ] Move Windows-specific OpenSteamTool behavior into `TOST.Windows`.
 - [ ] Keep the existing WinForms application operational until Avalonia reaches feature parity.
 
@@ -15,18 +15,32 @@
 
 - [x] Create an initial Linux CLI before committing to a cross-platform GUI framework.
 - [x] Add Linux Steam discovery for native Steam, Flatpak, SteamOS, and Bazzite installations.
-- [ ] Add an SLSsteam provider for installation status, version checks, configuration, logs, and safe removal.
-- [ ] Download pinned upstream releases and verify published checksums; do not execute unpinned curl-to-shell installers.
+- [x] Add SLSsteam installation and required-file status detection.
+- [x] Add bounded, read-only SLSsteam configuration inspection and explicit backups.
+- [x] Add guarded SafeMode editing with dry-run preview, mandatory backup, and atomic replacement.
+- [x] Add bounded native/Flatpak log viewing and installed-binary fingerprints.
+- [x] Add validated remote SLSsteam release and published-checksum lookup.
+- [x] Add allowlisted boolean configuration editing with preview and atomic backup-first writes.
+- [x] Add configuration backup discovery, validation, preview, and safe restoration.
+- [x] Detect native and Flatpak SLSsteam installations independently.
+- [x] Add preview-first SLSsteam library removal, recovery discovery, and guarded restoration.
+- [x] Configure and safely remove unmodified TOST-managed native wrappers and Flatpak overrides.
+- [x] Archive, list, and restore removed native launch wrappers and Flatpak overrides.
+- [x] Detect native wrappers, desktop/fish launch hooks, and Flatpak override files without executing them.
+- [x] Download pinned upstream portable releases, verify GitHub SHA-256 digests, and safely extract only required libraries.
 - [ ] Preserve upstream licenses, attribution, and source links in the Linux package.
-- [ ] Add import support for user-provided Lua and manifest files.
-- [ ] Parse only supported Lua data declarations; do not execute imported Lua scripts.
-- [ ] Convert supported AppID, depot, token, manifest, and DLC metadata into SLSsteam YAML.
-- [ ] Validate imported paths, identifiers, duplicate entries, file sizes, and manifest filenames.
-- [ ] Back up SLSsteam configuration and affected manifest files before every change.
-- [ ] Add one-click removal and restoration using the same recovery model as Windows TOST.
-- [ ] Add an Install button that delegates authorized AppID installation to the official Steam client.
-- [ ] Clearly report entitlement, missing-key, missing-token, and CDN authorization failures from Steam.
-- [ ] Never claim that appearing in the library guarantees download, launch, multiplayer, or anti-cheat compatibility.
+- [x] Add import support for user-provided Lua and manifest files.
+  - [x] Add the preview-first `import` command to `TOST.Linux`.
+  - [x] Safely parse `addappid` and `setManifestid` declarations without executing Lua.
+  - [x] Parse and validate depot keys and app tokens; keep DLC classification explicit.
+  - [x] Parse the contents of `appmanifest_*.acf` files.
+- [x] Apply supported AppID, token, and manifest override metadata to SLSsteam's official `config.yaml` schema with preview, backup, and atomic writes.
+- [ ] Add explicit parent-app/DLC mapping before writing `DlcData`; Lua alone does not identify this relationship.
+- [x] Register validated depot keys through Steam's Linux `config/config.vdf` with preview, conflict rejection, backup, and atomic writes.
+- [x] Validate imported paths, identifiers, duplicate destinations, file sizes, symlinks, and manifest filenames.
+- [x] Route Linux Lua, depot manifest, and app manifest files to their correct Steam directories.
+- [x] Reject duplicate destinations and roll back newly copied files after partial import failures.
+- [x] Never claim that appearing in the library guarantees download, launch, multiplayer, or anti-cheat compatibility.
 - [ ] Add safe Steam restart handling without terminating unrelated Wine/Proton processes.
 - [ ] Add compatibility warnings when Steam client updates invalidate the installed SLSsteam version.
 
@@ -45,9 +59,12 @@
 
 - [ ] Test native Steam and Flatpak Steam separately on a standard desktop distribution.
 - [ ] Test SteamOS/Bazzite filesystem and sandbox behavior without writing to immutable system paths.
-- [ ] Add unit tests for Lua parsing, YAML generation, path validation, backup, removal, and restoration.
-- [ ] Add integration tests using temporary fake Steam libraries; never modify a developer's real Steam installation.
-- [ ] Package Linux CLI builds as a portable archive while the backend is under development.
+- [x] Add dependency-free checks for Lua parsing, path routing, configuration backup, and restoration.
+- [x] Add integration checks using temporary fake Steam and SLSsteam installations; never modify a developer's real Steam installation.
+- [ ] Add tests for YAML generation and failure-injection rollback paths.
+- [x] Package Linux CLI builds as portable, AppImage, and Arch Linux artifacts with SHA-256 checksums.
+- [x] Replace legacy Windows and Linux package artwork with the current TOST logo.
+- [x] Configure the Linux CLI for self-contained single-file `linux-x64` publishing.
 - [ ] Package the completed Avalonia application for Windows and Linux.
 - [ ] Evaluate AppImage and Flatpak after the Avalonia application is stable.
 

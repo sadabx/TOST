@@ -7,17 +7,72 @@ Built around the separately maintained [OpenSteamTool](https://github.com/OpenSt
 
 ## Linux development
 
-Early Linux support lives in `TOST.Core` and `TOST.Linux`. The current CLI only
-detects native and Flatpak Steam installations; it does not install SLSsteam or
-import game files yet.
+Linux support is under active development on the `linux-support` branch. Shared,
+platform-neutral behavior lives in `TOST.Core`; `TOST.Linux` is the current CLI
+frontend. It supports native Steam, Flatpak Steam, SLSsteam diagnostics and
+recovery, guarded configuration changes, and preview-first local file imports.
+
+Linux imports route Lua to `config/stplug-in`, depot manifests to `depotcache`,
+and app manifests to `steamapps`. TOST safely parses supported OpenSteamTool Lua
+declarations without executing them, translates App IDs, tokens, and manifest
+overrides into SLSsteam's official `config.yaml`, and registers depot keys in
+Steam's `config/config.vdf`. Both configuration files are previewed, backed up,
+and atomically replaced. Explicit DLC-parent mapping is still pending.
 
 ```bash
 dotnet run --project TOST.Linux -- status
+dotnet run --project TOST.Linux -- config
+dotnet run --project TOST.Linux -- check-updates
+dotnet run --project TOST.Linux -- install-slssteam
+dotnet run --project TOST.Linux -- configure-launch
+dotnet run --project TOST.Linux -- configure-launch --flatpak
+dotnet run --project TOST.Linux -- launch-recovery
+dotnet run --project TOST.Linux -- inspect-import ./game.lua ./123_456.manifest
+dotnet run --project TOST.Linux -- import ./game.lua ./123_456.manifest
 ```
 
-Set `STEAM_DIR` when Steam uses a custom root. The Linux implementation will not
-claim that library visibility guarantees download entitlement, launch support,
-multiplayer, or anti-cheat compatibility.
+Mutating commands preview by default and require `--apply`. Run the complete
+command list with:
+
+```bash
+dotnet run --project TOST.Linux -- help
+```
+
+Set `STEAM_DIR` when Steam uses a custom native root. Use `--flatpak` on commands
+that need to select Flatpak Steam explicitly. TOST does not execute imported Lua
+or unverified upstream installers, and does not claim that library visibility
+guarantees download entitlement, launch support, multiplayer, or anti-cheat
+compatibility. `install-slssteam --apply` downloads the portable asset from the
+pinned official GitHub release, verifies its published SHA-256 digest, and
+extracts only `SLSsteam.so` and `library-inject.so`.
+
+`configure-launch` creates guarded native Steam wrappers; `--flatpak` creates a
+per-user Flatpak environment override. Both preview by default. TOST refuses to
+overwrite or remove hooks that are unmanaged or were modified after creation.
+Removal archives managed hooks under TOST recovery storage; `launch-recovery`
+lists them and `restore-launch <archive-id> --apply` restores guarded entries.
+
+### Build and verify
+
+The repository solution contains the Windows frontend, shared core, Linux CLI,
+and dependency-free test runner:
+
+```bash
+dotnet build TOST.sln --configuration Release
+dotnet run --project TOST.Core.Tests --configuration Release
+```
+
+Publish a self-contained, single-file Linux x64 executable with:
+
+```bash
+dotnet publish TOST.Linux --configuration Release --runtime linux-x64 --self-contained true --output artifacts/linux-x64
+chmod +x artifacts/linux-x64/tost
+```
+
+Tagged releases and manual workflow runs also produce a portable `.tar.gz`, an
+`x86_64.AppImage`, an Arch Linux `.pkg.tar.zst`, and `SHA256SUMS-linux.txt`.
+AppImage users can mark the file executable and run it directly; Arch users can
+install with `sudo pacman -U tost-<version>-1-x86_64.pkg.tar.zst`.
 
 ## Screenshots
 <details>
@@ -171,9 +226,8 @@ TOST/
 |   |-- ss/
 |   |   |-- TOST.png          Floating-menu preview
 |   |   `-- game-manager.png  Game Manager preview
-|   |-- logo-128.png          Embedded floating-window logo
-|   |-- logo-512.png          High-resolution logo
-|   `-- opensteamtool.ico     Application and installer icon
+|   |-- TOST.png              Current Windows and Linux logo
+|   `-- tost.ico              Application and installer icon
 |-- Infrastructure/           Paths, settings, logging, and Windows theming
 |-- Models/                   Installation and game-management data models
 |-- Services/                 Game discovery, removal, recovery, and name lookup

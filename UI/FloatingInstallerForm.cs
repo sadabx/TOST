@@ -353,8 +353,7 @@ internal sealed partial class FloatingInstallerForm : Form
     {
         var candidates = new[]
         {
-            Path.Combine(AppContext.BaseDirectory, "Assets", "logo-128.png"),
-            Path.Combine(AppContext.BaseDirectory, "Assets", "logo-512.png"),
+            Path.Combine(AppContext.BaseDirectory, "Assets", "TOST.png"),
         };
 
         foreach (var path in candidates)
@@ -367,7 +366,7 @@ internal sealed partial class FloatingInstallerForm : Form
         }
 
         using var embeddedLogo = typeof(FloatingInstallerForm).Assembly
-            .GetManifestResourceStream("TOST.Assets.logo-128.png");
+            .GetManifestResourceStream("TOST.Assets.TOST.png");
         if (embeddedLogo is not null)
         {
             using var source = Image.FromStream(embeddedLogo);
@@ -567,4 +566,3 @@ internal sealed partial class FloatingInstallerForm : Form
         control.MouseUp += (_, _) => dragging = false;
     }
 }
-

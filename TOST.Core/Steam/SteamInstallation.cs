@@ -14,4 +14,6 @@ public sealed record SteamInstallation(
 {
     public string SteamAppsPath => Path.Combine(RootPath, "steamapps");
     public string ConfigPath => Path.Combine(RootPath, "config");
+    public string SlsPluginPath => Path.Combine(ConfigPath, "stplug-in");
+    public string DepotCachePath => Path.Combine(RootPath, "depotcache");
 }

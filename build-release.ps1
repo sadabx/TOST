@@ -57,7 +57,7 @@ dotnet vpk pack `
     --mainExe TOST.exe `
     --packTitle "TOST" `
     --packAuthors "Trionine" `
-    --icon (Join-Path $ProjectRoot "Assets\opensteamtool.ico") `
+    --icon (Join-Path $ProjectRoot "Assets\tost.ico") `
     --instLicense (Join-Path $ProjectRoot "LICENSE") `
     --instReadme (Join-Path $ProjectRoot "README.md") `
     --runtime win-x64 `
