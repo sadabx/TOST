@@ -77,8 +77,9 @@ chmod +x artifacts/linux-x64/tost
 ```
 
 Pushing a version tag runs the GitHub release workflow. It tests and packages
-Windows and Linux, creates one GitHub Release with generated notes, and uploads
-all platform assets automatically:
+Windows and Linux, creates one GitHub Release with a `What's new` list generated
+from commits since the previous tag, and uploads all platform assets
+automatically:
 
 ```bash
 git tag v2.0.1

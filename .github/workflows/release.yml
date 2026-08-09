@@ -111,12 +111,39 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+          fetch-depth: 0
       - name: Download packaged assets
         uses: actions/download-artifact@v4
         with:
           pattern: TOST-${{ needs.metadata.outputs.version }}-*
           path: release-assets
           merge-multiple: true
+      - name: Build release notes from commits
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+        run: |
+          set -euo pipefail
+          previous_tag="$(git describe --tags --abbrev=0 "${RELEASE_TAG}^" 2>/dev/null || true)"
+          if [[ -n "$previous_tag" ]]; then
+            range="$previous_tag..$RELEASE_TAG"
+          else
+            range="$RELEASE_TAG"
+          fi
+
+          {
+            echo "## What's new"
+            echo
+            git log "$range" --no-merges --pretty=format:'- %s'
+            echo
+            if [[ -n "$previous_tag" ]]; then
+              echo
+              echo "**Full Changelog:** [$previous_tag...$RELEASE_TAG]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$previous_tag...$RELEASE_TAG)"
+            fi
+          } > release-notes.md
       - name: Create release and upload assets
         shell: bash
         env:
@@ -129,7 +156,7 @@ jobs:
           (( ${#assets[@]} > 0 ))
 
           if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            release_flags=(--draft --generate-notes --verify-tag)
+            release_flags=(--draft --verify-tag --notes-file release-notes.md)
             if [[ "$VERSION" == *-* ]]; then
               release_flags+=(--prerelease)
             else
@@ -146,4 +173,5 @@ jobs:
             --clobber
           gh release edit "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
+            --notes-file release-notes.md \
             --draft=false
