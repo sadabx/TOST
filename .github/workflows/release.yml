@@ -1,0 +1,149 @@
+name: Release TOST
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build, such as v2.0.1
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Resolve version
+        id: release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+
+  windows:
+    name: Build Windows release
+    needs: metadata
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build and test
+        shell: pwsh
+        run: |
+          dotnet restore TOST.sln -p:NuGetAudit=false
+          dotnet build TOST.sln -c Release --no-restore -p:NuGetAudit=false
+          dotnet run --project Tests/Core/TOST.Core.Tests.csproj -c Release --no-build
+      - name: Package Windows release
+        shell: pwsh
+        run: ./build-release.ps1 -Version "${{ needs.metadata.outputs.version }}" -SkipPreviousRelease
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOST-${{ needs.metadata.outputs.version }}-windows
+          path: Releases/*
+          if-no-files-found: error
+          retention-days: 7
+
+  linux:
+    name: Build Linux release
+    needs: metadata
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.metadata.outputs.tag }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish self-contained Linux desktop application
+        run: dotnet publish Desktop/TOST.Desktop.csproj -c Release -r linux-x64 --self-contained true -p:NuGetAudit=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false -p:Version=${{ needs.metadata.outputs.version }} -o artifacts/linux-desktop
+      - name: Publish self-contained Linux CLI
+        run: dotnet publish CLI/Linux/TOST.Linux.csproj -c Release -r linux-x64 --self-contained true -p:NuGetAudit=false -p:Version=${{ needs.metadata.outputs.version }} -o artifacts/linux-cli
+      - name: Download checksum-verified appimagetool
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset_json="$(gh api repos/AppImage/appimagetool/releases/tags/continuous --jq '.assets[] | select(.name == "appimagetool-x86_64.AppImage")')"
+          url="$(jq -r .browser_download_url <<<"$asset_json")"
+          digest="$(jq -r .digest <<<"$asset_json")"
+          [[ "$digest" =~ ^sha256:[0-9a-fA-F]{64}$ ]]
+          curl --fail --location --proto '=https' --tlsv1.2 "$url" -o artifacts/appimagetool
+          echo "${digest#sha256:}  artifacts/appimagetool" | sha256sum --check --strict
+          chmod +x artifacts/appimagetool
+      - name: Build portable, AppImage, and Arch packages
+        env:
+          APPIMAGETOOL: ${{ github.workspace }}/artifacts/appimagetool
+        run: bash packaging/linux/build-packages.sh "${{ needs.metadata.outputs.version }}" artifacts/linux-desktop artifacts/linux-cli artifacts/linux-release
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOST-${{ needs.metadata.outputs.version }}-linux
+          path: artifacts/linux-release/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs: [metadata, windows, linux]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download packaged assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: TOST-${{ needs.metadata.outputs.version }}-*
+          path: release-assets
+          merge-multiple: true
+      - name: Create release and upload assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          set -euo pipefail
+          mapfile -d '' assets < <(find release-assets -maxdepth 1 -type f -print0)
+          (( ${#assets[@]} > 0 ))
+
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            release_flags=(--draft --generate-notes --verify-tag)
+            if [[ "$VERSION" == *-* ]]; then
+              release_flags+=(--prerelease)
+            else
+              release_flags+=(--latest)
+            fi
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "TOST v$VERSION" \
+              "${release_flags[@]}"
+          fi
+
+          gh release upload "$RELEASE_TAG" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false
