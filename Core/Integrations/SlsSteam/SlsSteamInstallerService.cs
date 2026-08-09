@@ -60,7 +60,7 @@ public sealed class SlsSteamInstallerService
     private async Task<byte[]> DownloadVerifiedAsync(SlsSteamReleaseAsset asset, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, asset.DownloadUri);
-        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("TOST", "1.2.0"));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("TOST", "2.0.0"));
         using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         if (response.Content.Headers.ContentLength is > MaximumDownloadBytes ||

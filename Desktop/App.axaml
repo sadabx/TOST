@@ -29,11 +29,11 @@
                 Clicked="ShowMainWindow">
         <TrayIcon.Menu>
           <NativeMenu>
-            <NativeMenuItem Header="Open TOST" Click="ShowMainWindow" />
+            <NativeMenuItem Header="Show Floating Icon" Click="ShowMainWindow" />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Game Manager" Click="ShowGameManager" />
             <NativeMenuItem Header="Import Files" Click="ShowImports" />
-            <NativeMenuItem Header="SLSsteam / OST" Click="ShowIntegration" />
+            <NativeMenuItem Header="SLSsteam" Click="ShowIntegration" />
             <NativeMenuItem Header="Recovery" Click="ShowRecovery" />
             <NativeMenuItem Header="Logs" Click="ShowLogs" />
             <NativeMenuItem Header="Settings" Click="ShowSettings" />

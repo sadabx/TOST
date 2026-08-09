@@ -7,7 +7,6 @@ public sealed record TostPreferences
 {
     public SteamInstallationKind PreferredSteamInstallation { get; init; } = SteamInstallationKind.Native;
     public bool AutomaticallyCheckForUpdates { get; init; } = true;
-    public bool CloseToTray { get; init; } = true;
     public bool ShowFloatingIcon { get; init; } = true;
     public bool FloatingIconAlwaysOnTop { get; init; } = true;
     public bool StartWithDesktop { get; init; }

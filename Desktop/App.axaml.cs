@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Trionine.TOST.Desktop.Views;
 
 namespace Trionine.TOST.Desktop;
 
@@ -9,6 +10,7 @@ public sealed partial class App : Application
 {
     internal bool IsExiting { get; private set; }
     private FloatingIconWindow? floatingIcon;
+    private readonly Dictionary<string, Window> toolWindows = new(StringComparer.Ordinal);
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -17,8 +19,8 @@ public sealed partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            desktop.MainWindow = new MainWindow();
             ApplyPreferences();
+            if (floatingIcon is not null) desktop.MainWindow = floatingIcon;
         }
         base.OnFrameworkInitializationCompleted();
     }
@@ -28,17 +30,48 @@ public sealed partial class App : Application
 
     internal void ShowMainWindow()
     {
-        if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } window }) return;
-        window.Show();
-        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
-        window.Activate();
+        if (floatingIcon is null)
+        {
+            var preferences = DesktopPaths.PreferencesStore.Load();
+            DesktopPaths.PreferencesStore.Save(preferences with { ShowFloatingIcon = true });
+            ApplyPreferences();
+        }
+        floatingIcon?.Show();
+        floatingIcon?.Activate();
     }
 
     internal void OpenPage(string page)
     {
-        ShowMainWindow();
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: MainWindow window })
-            window.OpenPage(page);
+        if (toolWindows.TryGetValue(page, out var existing))
+        {
+            existing.Show();
+            existing.Activate();
+            return;
+        }
+        Control content = page switch
+        {
+            "Game Manager" => new GameManagerView(),
+            "Import Files" => new ImportView(),
+            "Integration" => new IntegrationView(),
+            "Recovery" => new RecoveryView(),
+            "Logs" => new LogsView(),
+            "Settings" => new SettingsView(),
+            _ => throw new ArgumentOutOfRangeException(nameof(page))
+        };
+        var window = new Window
+        {
+            Title = $"TOST — {page}",
+            Width = page == "Logs" ? 900 : page == "Game Manager" ? 820 : 760,
+            Height = page == "Game Manager" ? 650 : 620,
+            MinWidth = 620,
+            MinHeight = 480,
+            Background = Avalonia.Media.Brush.Parse("#101311"),
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Content = new ScrollViewer { Margin = new Thickness(22), Content = content }
+        };
+        window.Closed += (_, _) => toolWindows.Remove(page);
+        toolWindows[page] = window;
+        window.Show();
     }
 
     internal void HideFloatingIcon()
@@ -53,6 +86,8 @@ public sealed partial class App : Application
     {
         IsExiting = true;
         floatingIcon?.Close();
+        foreach (var window in toolWindows.Values.ToArray()) window.Close();
+        toolWindows.Clear();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) desktop.Shutdown();
     }
 

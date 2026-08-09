@@ -12,8 +12,9 @@ platform-neutral behavior lives in `Core`; `CLI/Linux` is the current CLI
 frontend. It supports native Steam, Flatpak Steam, SLSsteam diagnostics and
 recovery, guarded configuration changes, and preview-first local file imports.
 
-The cross-platform Avalonia frontend now lives in `Desktop`. Run its
-current migration preview on Windows or Linux with:
+The Linux Avalonia floating frontend lives in `Desktop`; Windows continues to
+use the existing WinForms floating frontend and OpenSteamTool provider. Run the
+Linux/SLSsteam frontend during development with:
 
 ```bash
 dotnet run --project Desktop/TOST.Desktop.csproj

@@ -9,9 +9,9 @@ internal sealed class FloatingIconWindow : Window
 {
     public FloatingIconWindow(bool alwaysOnTop)
     {
-        Width = Height = 60;
-        MinWidth = MinHeight = 60;
-        MaxWidth = MaxHeight = 60;
+        Width = Height = 52;
+        MinWidth = MinHeight = 52;
+        MaxWidth = MaxHeight = 52;
         CanResize = false;
         ShowInTaskbar = false;
         WindowDecorations = Avalonia.Controls.WindowDecorations.None;
@@ -27,18 +27,16 @@ internal sealed class FloatingIconWindow : Window
 
         var surface = new Border
         {
-            Width = 54,
-            Height = 54,
-            CornerRadius = new CornerRadius(27),
-            Background = Brush.Parse("#202421"),
-            BorderBrush = Brush.Parse("#3B453E"),
-            BorderThickness = new Thickness(1),
+            Width = 52,
+            Height = 52,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
             Child = new Image
             {
                 Source = new Avalonia.Media.Imaging.Bitmap(Avalonia.Platform.AssetLoader.Open(
                     new Uri("avares://TOST.Desktop/Assets/TOST.png"))),
-                Width = 42,
-                Height = 42,
+                Width = 50,
+                Height = 50,
                 Stretch = Stretch.Uniform
             },
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
@@ -48,8 +46,7 @@ internal sealed class FloatingIconWindow : Window
         {
             if (args.GetCurrentPoint(this).Properties.IsLeftButtonPressed) BeginMoveDrag(args);
         };
-        surface.Tapped += (_, _) => (Application.Current as App)?.ShowMainWindow();
-        ToolTip.SetTip(surface, "TOST — drag to move, click to open");
+        ToolTip.SetTip(surface, "TOST — drag to move, right-click for menu");
         surface.ContextMenu = BuildMenu();
         Content = surface;
     }
@@ -57,11 +54,9 @@ internal sealed class FloatingIconWindow : Window
     private static ContextMenu BuildMenu()
     {
         var menu = new ContextMenu();
-        menu.Items.Add(Item("Open TOST", () => App()?.ShowMainWindow()));
-        menu.Items.Add(new Separator());
         menu.Items.Add(Item("Game Manager", () => App()?.OpenPage("Game Manager")));
         menu.Items.Add(Item("Import Files", () => App()?.OpenPage("Import Files")));
-        menu.Items.Add(Item("SLSsteam / OST", () => App()?.OpenPage("Integration")));
+        menu.Items.Add(Item("SLSsteam", () => App()?.OpenPage("Integration")));
         menu.Items.Add(Item("Recovery", () => App()?.OpenPage("Recovery")));
         menu.Items.Add(Item("Logs", () => App()?.OpenPage("Logs")));
         menu.Items.Add(Item("Settings", () => App()?.OpenPage("Settings")));

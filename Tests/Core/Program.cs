@@ -293,14 +293,13 @@ static void TestPreferences()
     {
         PreferredSteamInstallation = SteamInstallationKind.Flatpak,
         AutomaticallyCheckForUpdates = false,
-        CloseToTray = false,
         ShowFloatingIcon = false,
         FloatingIconAlwaysOnTop = false,
         DiagnosticTailLines = 9_999
     });
     var loaded = store.Load();
     True(loaded.PreferredSteamInstallation == SteamInstallationKind.Flatpak &&
-         !loaded.AutomaticallyCheckForUpdates && !loaded.CloseToTray && !loaded.ShowFloatingIcon &&
+         !loaded.AutomaticallyCheckForUpdates && !loaded.ShowFloatingIcon &&
          !loaded.FloatingIconAlwaysOnTop && loaded.DiagnosticTailLines == 2_000,
         "Saved preferences were not preserved and normalized.");
     File.WriteAllText(path, "not json");

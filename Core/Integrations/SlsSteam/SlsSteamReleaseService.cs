@@ -30,7 +30,7 @@ public sealed class SlsSteamReleaseService
     public async Task<SlsSteamRelease> GetLatestAsync(CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseApi);
-        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("TOST", "1.2.0"));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("TOST", "2.0.0"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
 

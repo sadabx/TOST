@@ -15,7 +15,6 @@ internal sealed class SettingsView : UserControl
         Width = 190
     };
     private readonly CheckBox updateChecks = new() { Content = "Automatically check for TOST updates" };
-    private readonly CheckBox closeToTray = new() { Content = "Keep TOST running in the system tray when the window closes" };
     private readonly CheckBox floatingIcon = new() { Content = "Show the floating TOST icon" };
     private readonly CheckBox floatingAlwaysOnTop = new() { Content = "Keep the floating icon always on top" };
     private readonly CheckBox startWithDesktop = new() { Content = "Start TOST when I sign in" };
@@ -38,7 +37,7 @@ internal sealed class SettingsView : UserControl
             Children =
             {
                 Card("Steam", Row("Preferred installation", preferredInstallation)),
-                Card("Desktop behavior", new StackPanel { Spacing = 12, Children = { closeToTray, floatingIcon, floatingAlwaysOnTop, startWithDesktop, updateChecks } }),
+                Card("Desktop behavior", new StackPanel { Spacing = 12, Children = { floatingIcon, floatingAlwaysOnTop, startWithDesktop, updateChecks } }),
                 Card("Diagnostics", Row("Default log lines", logLines)),
                 Card("Platform actions", new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { openData, openSteam, restartSteam } }),
                 new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { save, status } }
@@ -95,7 +94,6 @@ internal sealed class SettingsView : UserControl
         var settings = DesktopPaths.PreferencesStore.Load();
         preferredInstallation.SelectedIndex = settings.PreferredSteamInstallation == SteamInstallationKind.Flatpak ? 1 : 0;
         updateChecks.IsChecked = settings.AutomaticallyCheckForUpdates;
-        closeToTray.IsChecked = settings.CloseToTray;
         floatingIcon.IsChecked = settings.ShowFloatingIcon;
         floatingAlwaysOnTop.IsChecked = settings.FloatingIconAlwaysOnTop;
         startWithDesktop.IsChecked = settings.StartWithDesktop;
@@ -116,7 +114,6 @@ internal sealed class SettingsView : UserControl
             {
                 PreferredSteamInstallation = preferredInstallation.SelectedIndex == 1 ? SteamInstallationKind.Flatpak : SteamInstallationKind.Native,
                 AutomaticallyCheckForUpdates = updateChecks.IsChecked == true,
-                CloseToTray = closeToTray.IsChecked == true,
                 ShowFloatingIcon = floatingIcon.IsChecked == true,
                 FloatingIconAlwaysOnTop = floatingAlwaysOnTop.IsChecked == true,
                 StartWithDesktop = startWithDesktop.IsEnabled && startWithDesktop.IsChecked == true,
