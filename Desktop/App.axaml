@@ -21,22 +21,27 @@
       <Setter Property="CornerRadius" Value="10" />
       <Setter Property="Padding" Value="18" />
     </Style>
+    <Style Selector="ContextMenu">
+      <Setter Property="Background" Value="#232426" />
+      <Setter Property="BorderBrush" Value="#414346" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="4" />
+    </Style>
+    <Style Selector="MenuItem:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#36383B" />
+    </Style>
   </Application.Styles>
   <TrayIcon.Icons>
     <TrayIcons>
       <TrayIcon Icon="avares://TOST.Desktop/Assets/TOST.png"
                 ToolTipText="TOST"
-                Clicked="ShowMainWindow">
+                Clicked="ShowFloatingIcon">
         <TrayIcon.Menu>
           <NativeMenu>
-            <NativeMenuItem Header="Show Floating Icon" Click="ShowMainWindow" />
+            <NativeMenuItem Header="Show Floating Icon" Click="ShowFloatingIcon" />
             <NativeMenuItemSeparator />
-            <NativeMenuItem Header="Game Manager" Click="ShowGameManager" />
-            <NativeMenuItem Header="Import Files" Click="ShowImports" />
-            <NativeMenuItem Header="SLSsteam" Click="ShowIntegration" />
-            <NativeMenuItem Header="Recovery" Click="ShowRecovery" />
-            <NativeMenuItem Header="Logs" Click="ShowLogs" />
-            <NativeMenuItem Header="Settings" Click="ShowSettings" />
+            <NativeMenuItem Header="Install / Repair SLSsteam" Click="InstallSlsSteam" />
+            <NativeMenuItem Header="Check for Updates" Click="CheckForUpdates" />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Exit" Click="ExitApplication" />
           </NativeMenu>

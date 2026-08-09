@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Trionine.TOST.Desktop.Views;
 
 namespace Trionine.TOST.Desktop;
@@ -10,7 +11,8 @@ public sealed partial class App : Application
 {
     internal bool IsExiting { get; private set; }
     private FloatingIconWindow? floatingIcon;
-    private readonly Dictionary<string, Window> toolWindows = new(StringComparer.Ordinal);
+    private Window? gameManagerWindow;
+    private Window? settingsWindow;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -20,15 +22,18 @@ public sealed partial class App : Application
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             ApplyPreferences();
-            if (floatingIcon is not null) desktop.MainWindow = floatingIcon;
+            if (floatingIcon is not null)
+            {
+                desktop.MainWindow = floatingIcon;
+            }
         }
+
         base.OnFrameworkInitializationCompleted();
     }
 
-    private void ShowMainWindow(object? sender, EventArgs e)
-        => ShowMainWindow();
+    private void ShowFloatingIcon(object? sender, EventArgs e) => ShowFloatingIcon();
 
-    internal void ShowMainWindow()
+    internal void ShowFloatingIcon()
     {
         if (floatingIcon is null)
         {
@@ -36,42 +41,45 @@ public sealed partial class App : Application
             DesktopPaths.PreferencesStore.Save(preferences with { ShowFloatingIcon = true });
             ApplyPreferences();
         }
+
         floatingIcon?.Show();
         floatingIcon?.Activate();
     }
 
-    internal void OpenPage(string page)
+    internal void ShowGameManager()
     {
-        if (toolWindows.TryGetValue(page, out var existing))
+        if (gameManagerWindow is not null)
         {
-            existing.Show();
-            existing.Activate();
+            gameManagerWindow.Show();
+            gameManagerWindow.Activate();
             return;
         }
-        Control content = page switch
+
+        gameManagerWindow = CreateToolWindow(
+            "TOST Game Manager",
+            760,
+            500,
+            new GameManagerView());
+        gameManagerWindow.Closed += (_, _) => gameManagerWindow = null;
+        gameManagerWindow.Show();
+    }
+
+    internal void ShowSettings()
+    {
+        if (settingsWindow is not null)
         {
-            "Game Manager" => new GameManagerView(),
-            "Import Files" => new ImportView(),
-            "Integration" => new IntegrationView(),
-            "Recovery" => new RecoveryView(),
-            "Logs" => new LogsView(),
-            "Settings" => new SettingsView(),
-            _ => throw new ArgumentOutOfRangeException(nameof(page))
-        };
-        var window = new Window
-        {
-            Title = $"TOST — {page}",
-            Width = page == "Logs" ? 900 : page == "Game Manager" ? 820 : 760,
-            Height = page == "Game Manager" ? 650 : 620,
-            MinWidth = 620,
-            MinHeight = 480,
-            Background = Avalonia.Media.Brush.Parse("#101311"),
-            WindowStartupLocation = WindowStartupLocation.CenterScreen,
-            Content = new ScrollViewer { Margin = new Thickness(22), Content = content }
-        };
-        window.Closed += (_, _) => toolWindows.Remove(page);
-        toolWindows[page] = window;
-        window.Show();
+            settingsWindow.Show();
+            settingsWindow.Activate();
+            return;
+        }
+
+        settingsWindow = CreateToolWindow(
+            "TOST Settings",
+            520,
+            350,
+            new SettingsView());
+        settingsWindow.Closed += (_, _) => settingsWindow = null;
+        settingsWindow.Show();
     }
 
     internal void HideFloatingIcon()
@@ -86,17 +94,13 @@ public sealed partial class App : Application
     {
         IsExiting = true;
         floatingIcon?.Close();
-        foreach (var window in toolWindows.Values.ToArray()) window.Close();
-        toolWindows.Clear();
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop) desktop.Shutdown();
+        gameManagerWindow?.Close();
+        settingsWindow?.Close();
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
     }
-
-    private void ShowGameManager(object? sender, EventArgs e) => OpenPage("Game Manager");
-    private void ShowImports(object? sender, EventArgs e) => OpenPage("Import Files");
-    private void ShowIntegration(object? sender, EventArgs e) => OpenPage("Integration");
-    private void ShowRecovery(object? sender, EventArgs e) => OpenPage("Recovery");
-    private void ShowLogs(object? sender, EventArgs e) => OpenPage("Logs");
-    private void ShowSettings(object? sender, EventArgs e) => OpenPage("Settings");
 
     internal void ApplyPreferences()
     {
@@ -117,10 +121,43 @@ public sealed partial class App : Application
         else
         {
             floatingIcon.Topmost = preferences.FloatingIconAlwaysOnTop;
-            if (!floatingIcon.IsVisible) floatingIcon.Show();
+            if (!floatingIcon.IsVisible)
+            {
+                floatingIcon.Show();
+            }
         }
     }
 
-    private void ExitApplication(object? sender, EventArgs e)
-        => Exit();
+    private static Window CreateToolWindow(string title, double width, double height, Control content) => new()
+    {
+        Title = title,
+        Width = width,
+        Height = height,
+        MinWidth = width,
+        MinHeight = height,
+        MaxWidth = width,
+        MaxHeight = height,
+        CanResize = false,
+        Background = Brush.Parse("#232426"),
+        WindowStartupLocation = WindowStartupLocation.CenterScreen,
+        Content = new Border
+        {
+            Padding = new Thickness(12),
+            Child = content
+        }
+    };
+
+    private async void InstallSlsSteam(object? sender, EventArgs e)
+    {
+        ShowFloatingIcon();
+        if (floatingIcon is not null)
+        {
+            await floatingIcon.InstallOrRepairSlsSteamAsync();
+        }
+    }
+
+    private void CheckForUpdates(object? sender, EventArgs e) =>
+        FloatingIconWindow.OpenWebsite("https://github.com/sadabx/TOST/releases/latest");
+
+    private void ExitApplication(object? sender, EventArgs e) => Exit();
 }

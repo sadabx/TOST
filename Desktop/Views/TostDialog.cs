@@ -37,7 +37,7 @@ internal static class TostDialog
         SizeToContent = SizeToContent.Height,
         CanResize = false,
         ShowInTaskbar = false,
-        WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        WindowStartupLocation = WindowStartupLocation.CenterScreen,
         Background = Brush.Parse("#171A18"),
         Content = new StackPanel
         {
