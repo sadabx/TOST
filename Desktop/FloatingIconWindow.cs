@@ -78,6 +78,12 @@ internal sealed class FloatingIconWindow : Window
             return;
         }
 
+        if (DesktopPlatform.UsesOpenSteamTool && SteamProcessGuard.IsSteamRunning())
+        {
+            await TostDialog.ShowAsync(this, "Close Steam First", SteamProcessGuard.CloseSteamInstructions);
+            return;
+        }
+
         if (!await TostDialog.ConfirmAsync(
                 this,
                 $"Install / Repair {DesktopPlatform.IntegrationName}",
@@ -377,6 +383,12 @@ internal sealed class FloatingIconWindow : Window
         if (steam is null)
         {
             await TostDialog.ShowAsync(this, "Import Files", "No Steam installation was detected. Check TOST Settings.");
+            return;
+        }
+
+        if (DesktopPlatform.UsesOpenSteamTool && SteamProcessGuard.IsSteamRunning())
+        {
+            await TostDialog.ShowAsync(this, "Close Steam First", SteamProcessGuard.CloseSteamInstructions);
             return;
         }
 

@@ -1,5 +1,6 @@
 using Trionine.TOST.Core.Imports;
 using Trionine.TOST.Core.Integrations.SlsSteam;
+using Trionine.TOST.Core.Integrations.OpenSteamTool;
 using Trionine.TOST.Core.Steam;
 using Trionine.TOST.Core.GameManagement;
 using Trionine.TOST.Core.Configuration;
@@ -18,6 +19,7 @@ var tests = new (string Name, Action Run)[]
     ("Native and Flatpak launch hooks are guarded and removable", TestLaunchConfiguration),
     ("Imports route into a fake Steam installation and reject conflicts", TestImportRouting),
     ("Windows imports and game management use the OST Steam layout", TestWindowsImportRouting),
+    ("OST lock errors explain how to close Steam and retry", TestOpenSteamToolLockMessage),
     ("Configuration changes back up and restore exact bytes", TestConfigBackupRestore),
     ("Linux Steam discovery uses only the supplied fake home", TestSteamDiscovery),
     ("SLSsteam libraries archive and restore in a fake installation", TestSlsRecovery),
@@ -305,6 +307,21 @@ static void TestWindowsImportRouting()
 
     var games = new ManagedGameService().FindManagedGames(installation);
     True(games.Count == 1 && games[0].ManifestPaths.Count == 1, "Windows Game Manager did not use the OST paths.");
+}
+
+static void TestOpenSteamToolLockMessage()
+{
+    var result = new OpenSteamToolInstallResult(
+        "1.4.8",
+        [
+            new OpenSteamToolFileResult("OpenSteamTool.dll", null, "Access to the path is denied."),
+            new OpenSteamToolFileResult("opensteamtool.toml", @"C:\\Steam\\opensteamtool.toml", null)
+        ]);
+    var message = result.ToMessage();
+    True(message.Contains("Close Steam completely", StringComparison.Ordinal) &&
+         message.Contains("Steam > Exit", StringComparison.Ordinal) &&
+         message.Contains("restart TOST as administrator", StringComparison.Ordinal),
+        "OST lock errors did not provide actionable recovery instructions.");
 }
 
 static void TestPreferences()

@@ -24,6 +24,7 @@ internal sealed class GameManagerView : UserControl
     private readonly Button remove = PrimaryButton("Remove Selected");
     private readonly Button restore = PrimaryButton("Restore Selected");
     private IReadOnlyList<ManagedGame> managedGames = [];
+    private int refreshGeneration;
 
     public GameManagerView()
     {
@@ -152,12 +153,19 @@ internal sealed class GameManagerView : UserControl
         return header;
     }
 
-    private Control CreateGameRow(GameItem item)
+    private Control CreateGameRow(GameItem? item)
     {
+        // Avalonia can briefly ask a recyclable data template to render a null
+        // item while its ItemsSource is being replaced.
+        if (item?.Game is not { } game)
+        {
+            return new Border { MinHeight = 28 };
+        }
+
         var row = CreateGameGrid();
         var selected = new CheckBox
         {
-            Content = item.Game.DisplayName,
+            Content = game.DisplayName,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(7, 2)
         };
@@ -167,9 +175,9 @@ internal sealed class GameManagerView : UserControl
             UpdateActions();
         };
         row.Children.Add(selected);
-        row.Children.Add(CellText(item.Game.AppId, 1));
-        row.Children.Add(CellText(Path.GetFileName(item.Game.LuaPath), 2));
-        row.Children.Add(CellText(item.Game.ManifestPaths.Count.ToString(), 3));
+        row.Children.Add(CellText(game.AppId, 1));
+        row.Children.Add(CellText(Path.GetFileName(game.LuaPath), 2));
+        row.Children.Add(CellText(game.ManifestPaths.Count.ToString(), 3));
         return row;
     }
 
@@ -211,7 +219,11 @@ internal sealed class GameManagerView : UserControl
         targetBar.IsVisible = found.Count > 1;
         installation.ItemsSource = found;
         installation.ItemTemplate = new FuncDataTemplate<SteamInstallation>((item, _) =>
-            new TextBlock { Text = $"{item.Kind} - {item.RootPath}", TextTrimming = TextTrimming.CharacterEllipsis });
+            new TextBlock
+            {
+                Text = item is null ? string.Empty : $"{item.Kind} - {item.RootPath}",
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
         var preferred = DesktopPaths.PreferencesStore.Load().PreferredSteamInstallation;
         installation.SelectedIndex = found.Count == 0
             ? -1
@@ -224,6 +236,7 @@ internal sealed class GameManagerView : UserControl
 
     private async Task RefreshAsync()
     {
+        var generation = ++refreshGeneration;
         var steam = SelectedInstallation;
         if (steam is null)
         {
@@ -236,26 +249,34 @@ internal sealed class GameManagerView : UserControl
 
         try
         {
-            managedGames = service.FindManagedGames(steam);
-            games.ItemsSource = managedGames.Select(game => new GameItem(game)).ToArray();
+            var refreshedGames = service.FindManagedGames(steam);
+            managedGames = refreshedGames;
+            games.ItemsSource = refreshedGames.Select(game => new GameItem(game)).ToArray();
             recovery.ItemsSource = service.FindRemovedGames(RecoveryRoot)
                 .Select(item => new ArchiveItem(item))
                 .ToArray();
             status.Text = $"Found {managedGames.Count} managed game{(managedGames.Count == 1 ? "" : "s")}.";
 
-            var missingNames = managedGames.Where(game => string.IsNullOrWhiteSpace(game.Name)).Select(game => game.AppId).ToArray();
+            var missingNames = refreshedGames.Where(game => string.IsNullOrWhiteSpace(game.Name)).Select(game => game.AppId).ToArray();
             if (missingNames.Length > 0)
             {
                 var resolved = await SteamGameNameResolver.ResolveAsync(missingNames);
-                managedGames = managedGames
+                if (generation != refreshGeneration)
+                {
+                    return;
+                }
+
+                managedGames = refreshedGames
                     .Select(game => resolved.TryGetValue(game.AppId, out var name) ? game with { Name = name } : game)
                     .ToArray();
                 games.ItemsSource = managedGames.Select(game => new GameItem(game)).ToArray();
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex)
         {
-            status.Text = $"Could not scan the Steam installation: {ex.Message}";
+            DesktopLog.Error($"Game Manager refresh failed: {ex}");
+            status.Text = "Game Manager could not read the Steam files. Close Steam if it is updating files, then click Refresh. " +
+                          $"Details: {ex.Message}";
         }
 
         UpdateActions();

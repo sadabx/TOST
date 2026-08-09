@@ -67,13 +67,28 @@ public sealed partial class App : Application
             return;
         }
 
-        gameManagerWindow = CreateToolWindow(
-            "TOST Game Manager",
-            760,
-            500,
-            new GameManagerView());
-        gameManagerWindow.Closed += (_, _) => gameManagerWindow = null;
-        gameManagerWindow.Show();
+        try
+        {
+            gameManagerWindow = CreateToolWindow(
+                "TOST Game Manager",
+                760,
+                500,
+                new GameManagerView());
+            gameManagerWindow.Closed += (_, _) => gameManagerWindow = null;
+            gameManagerWindow.Show();
+        }
+        catch (Exception ex)
+        {
+            Services.DesktopLog.Error($"Game Manager could not open: {ex}");
+            gameManagerWindow = null;
+            if (floatingIcon is not null)
+            {
+                _ = TostDialog.ShowAsync(
+                    floatingIcon,
+                    "TOST Game Manager",
+                    $"Game Manager could not open. No Steam files were changed.{Environment.NewLine}{Environment.NewLine}{ex.Message}");
+            }
+        }
     }
 
     internal void ShowSettings()
@@ -88,7 +103,7 @@ public sealed partial class App : Application
         settingsWindow = CreateToolWindow(
             "TOST Settings",
             520,
-            OperatingSystem.IsWindows() ? 315 : 300,
+            OperatingSystem.IsWindows() ? 390 : 340,
             new SettingsView());
         settingsWindow.Closed += (_, _) => settingsWindow = null;
         settingsWindow.Show();

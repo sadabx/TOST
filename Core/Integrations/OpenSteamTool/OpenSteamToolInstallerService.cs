@@ -28,11 +28,27 @@ public sealed record OpenSteamToolInstallResult(string? Tag, IReadOnlyList<OpenS
         lines.Add($"Imported {ImportedCount} file{(ImportedCount == 1 ? string.Empty : "s")}.");
         foreach (var failure in Files.Where(file => !file.Success))
         {
-            lines.Add($"Skipped {failure.Name}: {failure.Error}");
+            lines.Add(IsLockedOrDenied(failure.Error)
+                ? $"Could not replace {failure.Name} because Steam or another process is using it."
+                : $"Skipped {failure.Name}: {failure.Error}");
+        }
+
+        if (Files.Any(file => !file.Success && IsLockedOrDenied(file.Error)))
+        {
+            lines.Add(string.Empty);
+            lines.Add("Close Steam completely using Steam > Exit, wait for its tray icon to disappear, then run Install / Repair again.");
+            lines.Add("If Steam is already closed, restart TOST as administrator and verify that your Steam folder is writable.");
         }
 
         return string.Join(Environment.NewLine, lines);
     }
+
+    private static bool IsLockedOrDenied(string? error) =>
+        !string.IsNullOrWhiteSpace(error) &&
+        (error.Contains("access", StringComparison.OrdinalIgnoreCase) && error.Contains("denied", StringComparison.OrdinalIgnoreCase) ||
+         error.Contains("being used", StringComparison.OrdinalIgnoreCase) ||
+         error.Contains("used by another process", StringComparison.OrdinalIgnoreCase) ||
+         error.Contains("sharing violation", StringComparison.OrdinalIgnoreCase));
 }
 
 public sealed class OpenSteamToolInstallerService

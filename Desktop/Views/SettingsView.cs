@@ -69,11 +69,16 @@ internal sealed class SettingsView : UserControl
             Children = { save, cancel }
         };
 
+        var scroller = new ScrollViewer
+        {
+            Content = fields,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+        };
         Content = new Grid
         {
             RowDefinitions = new RowDefinitions("*,Auto,Auto"),
             RowSpacing = 10,
-            Children = { fields, status, actions }
+            Children = { scroller, status, actions }
         };
         Grid.SetRow(status, 1);
         Grid.SetRow(actions, 2);
@@ -98,7 +103,11 @@ internal sealed class SettingsView : UserControl
         var installations = SteamDiscovery.FindInstallations();
         preferredInstallation.ItemsSource = installations;
         preferredInstallation.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SteamInstallation>((item, _) =>
-            new TextBlock { Text = $"{DisplayKind(item.Kind)} - {item.RootPath}", TextTrimming = TextTrimming.CharacterEllipsis });
+            new TextBlock
+            {
+                Text = item is null ? string.Empty : $"{DisplayKind(item.Kind)} - {item.RootPath}",
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
         preferredInstallation.SelectedIndex = installations.Count == 0
             ? -1
             : Math.Max(0, installations.ToList().FindIndex(item => item.Kind == preferences.PreferredSteamInstallation));
