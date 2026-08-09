@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Trionine.TOST.Core.GameManagement;
 using Trionine.TOST.Core.Steam;
+using Trionine.TOST.Desktop.Services;
 
 namespace Trionine.TOST.Desktop.Views;
 
@@ -30,8 +31,8 @@ internal sealed class GameManagerView : UserControl
         restore.IsEnabled = false;
 
         var refresh = SecondaryButton("Refresh");
-        refresh.Click += (_, _) => Refresh();
-        installation.SelectionChanged += (_, _) => Refresh();
+        refresh.Click += async (_, _) => await RefreshAsync();
+        installation.SelectionChanged += async (_, _) => await RefreshAsync();
         recovery.SelectionChanged += (_, _) => UpdateActions();
         remove.Click += async (_, _) => await RemoveSelectedAsync();
         restore.Click += async (_, _) => await RestoreSelectedAsync();
@@ -74,30 +75,20 @@ internal sealed class GameManagerView : UserControl
         root.Children.Add(status);
         Content = root;
 
-        if (OperatingSystem.IsLinux())
-        {
-            LoadInstallations();
-        }
-        else
-        {
-            status.Text = "Windows Game Manager remains available in the WinForms frontend.";
-            installation.IsEnabled = refresh.IsEnabled = false;
-        }
+        LoadInstallations();
     }
 
     private SteamInstallation? SelectedInstallation => installation.SelectedItem as SteamInstallation;
 
-    private static string RecoveryRoot => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "TOST",
-        "backups",
-        "removed-games");
+    private static string RecoveryRoot => DesktopPaths.RecoveryRoot;
 
     private Control CreateManagedPage(Button refresh)
     {
         var description = new TextBlock
         {
-            Text = "Games detected from SLSsteam's plugin folder. Removal archives the Lua file and its unshared depot manifests.",
+            Text = DesktopPlatform.UsesOpenSteamTool
+                ? "Games detected from Steam's config\\lua folder. Removal moves only the Lua file and its unshared depot manifests into TOST's recovery folder."
+                : "Games detected from SLSsteam's plugin folder. Removal moves the Lua file and its unshared depot manifests into TOST's recovery folder.",
             Foreground = Brush.Parse("#B7C1BA"),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(8, 10, 8, 8)
@@ -216,22 +207,22 @@ internal sealed class GameManagerView : UserControl
 
     private void LoadInstallations()
     {
-        var found = LinuxSteamDiscovery.FindInstallations();
+        var found = DesktopPlatform.FindInstallations();
         targetBar.IsVisible = found.Count > 1;
         installation.ItemsSource = found;
         installation.ItemTemplate = new FuncDataTemplate<SteamInstallation>((item, _) =>
-            new TextBlock { Text = $"{item.Kind} — {item.RootPath}", TextTrimming = TextTrimming.CharacterEllipsis });
+            new TextBlock { Text = $"{item.Kind} - {item.RootPath}", TextTrimming = TextTrimming.CharacterEllipsis });
         var preferred = DesktopPaths.PreferencesStore.Load().PreferredSteamInstallation;
         installation.SelectedIndex = found.Count == 0
             ? -1
             : Math.Max(0, found.ToList().FindIndex(item => item.Kind == preferred));
         if (found.Count == 0)
         {
-            status.Text = "No native or Flatpak Steam installation was detected.";
+            status.Text = "No Steam installation was detected. Check TOST Settings.";
         }
     }
 
-    private void Refresh()
+    private async Task RefreshAsync()
     {
         var steam = SelectedInstallation;
         if (steam is null)
@@ -251,6 +242,16 @@ internal sealed class GameManagerView : UserControl
                 .Select(item => new ArchiveItem(item))
                 .ToArray();
             status.Text = $"Found {managedGames.Count} managed game{(managedGames.Count == 1 ? "" : "s")}.";
+
+            var missingNames = managedGames.Where(game => string.IsNullOrWhiteSpace(game.Name)).Select(game => game.AppId).ToArray();
+            if (missingNames.Length > 0)
+            {
+                var resolved = await SteamGameNameResolver.ResolveAsync(missingNames);
+                managedGames = managedGames
+                    .Select(game => resolved.TryGetValue(game.AppId, out var name) ? game with { Name = name } : game)
+                    .ToArray();
+                games.ItemsSource = managedGames.Select(game => new GameItem(game)).ToArray();
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -283,7 +284,7 @@ internal sealed class GameManagerView : UserControl
             return;
         }
 
-        var names = string.Join(Environment.NewLine, selected.Select(game => $"• {game.DisplayName} ({game.AppId})"));
+        var names = string.Join(Environment.NewLine, selected.Select(game => $"- {game.DisplayName} ({game.AppId})"));
         if (!await TostDialog.ConfirmAsync(
                 this,
                 "Remove Managed Games",
@@ -297,7 +298,7 @@ internal sealed class GameManagerView : UserControl
         status.Text = result.Message;
         if (result.Success)
         {
-            Refresh();
+            await RefreshAsync();
         }
     }
 
@@ -322,7 +323,7 @@ internal sealed class GameManagerView : UserControl
         status.Text = result.Message;
         if (result.Success)
         {
-            Refresh();
+            await RefreshAsync();
         }
     }
 
@@ -350,6 +351,6 @@ internal sealed class GameManagerView : UserControl
     private sealed record ArchiveItem(RemovedGameArchive Archive)
     {
         public override string ToString() =>
-            $"{Archive.RemovedUtc.ToLocalTime():g}  •  {string.Join(", ", Archive.Games.Select(game => game.DisplayName))}  •  {Archive.Files.Count} files";
+            $"{Archive.RemovedUtc.ToLocalTime():g}  -  {string.Join(", ", Archive.Games.Select(game => game.DisplayName))}  -  {Archive.Files.Count} files";
     }
 }

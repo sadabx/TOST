@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Trionine.TOST.Core.Configuration;
+using Avalonia.Platform.Storage;
 using Trionine.TOST.Core.Steam;
 using Trionine.TOST.Desktop.Services;
 
@@ -10,139 +10,172 @@ namespace Trionine.TOST.Desktop.Views;
 
 internal sealed class SettingsView : UserControl
 {
-    private readonly ComboBox preferredInstallation = new()
-    {
-        ItemsSource = new[] { "Native Steam", "Flatpak Steam" },
-        Width = 210
-    };
+    private readonly TextBox steamRoot = new() { MinWidth = 390 };
+    private readonly ComboBox preferredInstallation = new() { MinWidth = 390 };
+    private readonly CheckBox overwrite = new() { Content = "Overwrite existing files" };
+    private readonly CheckBox backup = new() { Content = "Backup files before overwrite" };
+    private readonly CheckBox startWithDesktop = new();
+    private readonly CheckBox floatingAlwaysOnTop = new() { Content = "Keep floating icon always on top" };
     private readonly CheckBox updateChecks = new() { Content = "Automatically check for TOST updates" };
-    private readonly CheckBox floatingIcon = new() { Content = "Show the floating TOST icon" };
-    private readonly CheckBox floatingAlwaysOnTop = new() { Content = "Keep the floating icon always on top" };
-    private readonly CheckBox startWithDesktop = new() { Content = "Start TOST when I sign in" };
-    private readonly NumericUpDown logLines = new()
-    {
-        Minimum = 10,
-        Maximum = 2_000,
-        Increment = 10,
-        Width = 110
-    };
     private readonly TextBlock status = new()
     {
-        Foreground = Brush.Parse("#AFC0B4"),
+        Foreground = Brush.Parse("#D79A42"),
         TextWrapping = TextWrapping.Wrap
     };
 
     public SettingsView()
     {
-        var save = new Button
-        {
-            Content = "Save",
-            Width = 100,
-            Height = 34,
-            Background = Brush.Parse("#219638")
-        };
-        var cancel = new Button
-        {
-            Content = "Cancel",
-            Width = 100,
-            Height = 34
-        };
+        startWithDesktop.Content = OperatingSystem.IsWindows()
+            ? "Start floating installer with Windows"
+            : "Start floating installer when I sign in";
+
+        var save = Button("Save", primary: true);
+        var cancel = Button("Cancel", primary: false);
         save.Click += (_, _) => Save();
-        cancel.Click += (_, _) => (TopLevel.GetTopLevel(this) as Window)?.Close();
+        cancel.Click += (_, _) => Close();
+
+        var fields = new StackPanel { Spacing = 12 };
+        if (OperatingSystem.IsWindows())
+        {
+            var browse = Button("Browse", primary: false);
+            browse.Width = 74;
+            browse.Click += async (_, _) => await BrowseSteamFolderAsync();
+            fields.Children.Add(new TextBlock { Text = "Steam folder" });
+            fields.Children.Add(new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                ColumnSpacing = 10,
+                Children = { steamRoot, browse }
+            });
+            Grid.SetColumn(browse, 1);
+            fields.Children.Add(overwrite);
+            fields.Children.Add(backup);
+        }
+        else
+        {
+            fields.Children.Add(new TextBlock { Text = "Steam installation" });
+            fields.Children.Add(preferredInstallation);
+        }
+
+        fields.Children.Add(startWithDesktop);
+        fields.Children.Add(floatingAlwaysOnTop);
+        fields.Children.Add(updateChecks);
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Spacing = 8,
+            Children = { save, cancel }
+        };
 
         Content = new Grid
         {
             RowDefinitions = new RowDefinitions("*,Auto,Auto"),
-            RowSpacing = 12,
-            Children =
-            {
-                new StackPanel
-                {
-                    Spacing = 14,
-                    Children =
-                    {
-                        Row("Preferred Steam installation", preferredInstallation),
-                        new Separator(),
-                        floatingIcon,
-                        floatingAlwaysOnTop,
-                        startWithDesktop,
-                        updateChecks,
-                        Row("Default diagnostic log lines", logLines)
-                    }
-                },
-                status,
-                new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    HorizontalAlignment = HorizontalAlignment.Right,
-                    Spacing = 8,
-                    Children = { cancel, save }
-                }
-            }
+            RowSpacing = 10,
+            Children = { fields, status, actions }
         };
         Grid.SetRow(status, 1);
-        Grid.SetRow(((Grid)Content).Children[2], 2);
+        Grid.SetRow(actions, 2);
         Load();
     }
 
     private void Load()
     {
-        var settings = DesktopPaths.PreferencesStore.Load();
-        preferredInstallation.SelectedIndex = settings.PreferredSteamInstallation == SteamInstallationKind.Flatpak ? 1 : 0;
-        updateChecks.IsChecked = settings.AutomaticallyCheckForUpdates;
-        floatingIcon.IsChecked = settings.ShowFloatingIcon;
-        floatingAlwaysOnTop.IsChecked = settings.FloatingIconAlwaysOnTop;
-        startWithDesktop.IsChecked = settings.StartWithDesktop;
-        if (!StartupRegistrationService.CanRegister(out var startupReason))
+        var preferences = DesktopPaths.PreferencesStore.Load();
+        steamRoot.Text = preferences.WindowsSteamRoot;
+        if (string.IsNullOrWhiteSpace(steamRoot.Text))
+        {
+            steamRoot.Text = SteamDiscovery.FindInstallations().FirstOrDefault()?.RootPath ?? string.Empty;
+        }
+
+        overwrite.IsChecked = preferences.OverwriteExistingFiles;
+        backup.IsChecked = preferences.BackupFilesBeforeOverwrite;
+        startWithDesktop.IsChecked = preferences.StartWithDesktop;
+        floatingAlwaysOnTop.IsChecked = preferences.FloatingIconAlwaysOnTop;
+        updateChecks.IsChecked = preferences.AutomaticallyCheckForUpdates;
+
+        var installations = SteamDiscovery.FindInstallations();
+        preferredInstallation.ItemsSource = installations;
+        preferredInstallation.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SteamInstallation>((item, _) =>
+            new TextBlock { Text = $"{DisplayKind(item.Kind)} - {item.RootPath}", TextTrimming = TextTrimming.CharacterEllipsis });
+        preferredInstallation.SelectedIndex = installations.Count == 0
+            ? -1
+            : Math.Max(0, installations.ToList().FindIndex(item => item.Kind == preferences.PreferredSteamInstallation));
+
+        if (!StartupRegistrationService.CanRegister(out var reason))
         {
             startWithDesktop.IsEnabled = false;
-            startWithDesktop.Content = $"Start TOST when I sign in — {startupReason}";
+            status.Text = reason;
         }
-        logLines.Value = settings.DiagnosticTailLines;
+    }
+
+    private async Task BrowseSteamFolderAsync()
+    {
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage is null)
+        {
+            return;
+        }
+
+        var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select Steam installation folder",
+            AllowMultiple = false
+        });
+        var path = folders.FirstOrDefault()?.TryGetLocalPath();
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            steamRoot.Text = path;
+        }
     }
 
     private void Save()
     {
         try
         {
-            var updated = new TostPreferences
+            var current = DesktopPaths.PreferencesStore.Load();
+            var selected = preferredInstallation.SelectedItem as SteamInstallation;
+            var updated = current with
             {
-                PreferredSteamInstallation = preferredInstallation.SelectedIndex == 1
-                    ? SteamInstallationKind.Flatpak
-                    : SteamInstallationKind.Native,
-                AutomaticallyCheckForUpdates = updateChecks.IsChecked == true,
-                ShowFloatingIcon = floatingIcon.IsChecked == true,
-                FloatingIconAlwaysOnTop = floatingAlwaysOnTop.IsChecked == true,
+                WindowsSteamRoot = steamRoot.Text?.Trim() ?? string.Empty,
+                PreferredSteamInstallation = selected?.Kind ?? current.PreferredSteamInstallation,
+                OverwriteExistingFiles = overwrite.IsChecked == true,
+                BackupFilesBeforeOverwrite = backup.IsChecked == true,
                 StartWithDesktop = startWithDesktop.IsEnabled && startWithDesktop.IsChecked == true,
-                DiagnosticTailLines = (int)(logLines.Value ?? 100)
+                FloatingIconAlwaysOnTop = floatingAlwaysOnTop.IsChecked == true,
+                AutomaticallyCheckForUpdates = updateChecks.IsChecked == true,
+                ShowFloatingIcon = true
             };
             if (startWithDesktop.IsEnabled)
             {
                 StartupRegistrationService.Apply(updated.StartWithDesktop);
             }
+
             DesktopPaths.PreferencesStore.Save(updated);
             (Application.Current as App)?.ApplyPreferences();
-            (TopLevel.GetTopLevel(this) as Window)?.Close();
+            Close();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
             status.Text = $"Could not save settings: {ex.Message}";
         }
     }
 
-    private static Grid Row(string label, Control control)
+    private void Close() => (TopLevel.GetTopLevel(this) as Window)?.Close();
+
+    private static Button Button(string text, bool primary) => new()
     {
-        var row = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto")
-        };
-        row.Children.Add(new TextBlock
-        {
-            Text = label,
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        Grid.SetColumn(control, 1);
-        row.Children.Add(control);
-        return row;
-    }
+        Content = text,
+        Width = 76,
+        Height = 30,
+        Background = primary ? Brush.Parse("#159B35") : null
+    };
+
+    private static string DisplayKind(SteamInstallationKind kind) => kind switch
+    {
+        SteamInstallationKind.Flatpak => "Flatpak Steam",
+        SteamInstallationKind.Windows => "Steam",
+        _ => "Native Steam"
+    };
 }

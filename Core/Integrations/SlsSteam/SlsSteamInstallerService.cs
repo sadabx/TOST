@@ -16,7 +16,7 @@ public sealed class SlsSteamInstallerService
 
     public SlsSteamInstallerService(HttpClient httpClient) => this.httpClient = httpClient;
 
-    public SlsSteamInstallPreview Preview(SlsSteamRelease release, SlsSteamPaths paths)
+    public SlsSteamInstallPreview Preview(SlsSteamRelease release, SlsSteamPaths paths, bool allowRepair = false)
     {
         var asset = release.Assets.FirstOrDefault(item => item.Name.Equals("SLSsteam-Any.7z", StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidDataException("The pinned SLSsteam release has no portable SLSsteam-Any.7z asset.");
@@ -26,23 +26,35 @@ public sealed class SlsSteamInstallerService
             throw new InvalidDataException("The pinned SLSsteam asset size is outside the allowed range.");
         var destinations = RequiredFiles.Select(file => Path.Combine(paths.DataDirectory, file)).ToArray();
         var existing = destinations.Where(File.Exists).Select(Path.GetFileName).ToArray();
-        return new SlsSteamInstallPreview(release.Tag, asset, destinations, existing.Length == 0,
-            existing.Length == 0 ? null : $"Existing managed files must be removed or archived first: {string.Join(", ", existing)}");
+        return new SlsSteamInstallPreview(release.Tag, asset, destinations, existing.Length == 0 || allowRepair,
+            existing.Length == 0 || allowRepair ? null : $"Existing managed files must be removed or archived first: {string.Join(", ", existing)}");
     }
 
-    public async Task<SlsSteamInstallResult> InstallAsync(SlsSteamRelease release, SlsSteamPaths paths, CancellationToken cancellationToken = default)
+    public async Task<SlsSteamInstallResult> InstallAsync(
+        SlsSteamRelease release,
+        SlsSteamPaths paths,
+        CancellationToken cancellationToken = default,
+        bool repairExisting = false)
     {
-        var preview = Preview(release, paths);
+        var preview = Preview(release, paths, repairExisting);
         if (!preview.CanInstall) throw new IOException(preview.BlockReason);
         var archiveBytes = await DownloadVerifiedAsync(preview.Asset, cancellationToken);
         var extracted = ExtractRequiredFiles(archiveBytes);
         Directory.CreateDirectory(paths.DataDirectory);
         var installed = new List<string>();
+        var backups = new List<(string Destination, string Backup)>();
         try
         {
             foreach (var fileName in RequiredFiles)
             {
                 var destination = Path.Combine(paths.DataDirectory, fileName);
+                if (File.Exists(destination))
+                {
+                    var backup = destination + ".bak-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+                    File.Move(destination, backup);
+                    backups.Add((destination, backup));
+                }
+
                 using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 output.Write(extracted[fileName]);
                 output.Flush(flushToDisk: true);
@@ -52,6 +64,10 @@ public sealed class SlsSteamInstallerService
         catch
         {
             foreach (var path in installed) if (File.Exists(path)) File.Delete(path);
+            foreach (var (destination, backup) in backups.AsEnumerable().Reverse())
+            {
+                if (File.Exists(backup) && !File.Exists(destination)) File.Move(backup, destination);
+            }
             throw;
         }
         return new SlsSteamInstallResult(release.Tag, installed);

@@ -1,20 +1,19 @@
 # TOST
 **TRIONINE OPEN STEAM TOOL**
 
-TOST automatically downloads and installs the latest official OpenSteamTool [release](https://github.com/OpenSteam001/OpenSteamTool/releases) and offers a floating desktop icon for routing supported local files to the right Steam directories. 
+TOST uses one shared Avalonia floating desktop interface on Windows and Linux. On Windows it manages [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool); on Linux it manages [SLSsteam](https://github.com/AceSLS/SLSsteam). The visible workflow stays the same while file routing and integration setup follow the active platform.
 
-Built around the separately maintained [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool) project, it’s not the closed-source SteamTools app and has no ownership, maintenance, or endorsement from OpenSteamTool, Valve, or Steam.
+TOST is not the closed-source SteamTools app and has no ownership, maintenance, or endorsement from OpenSteamTool, SLSsteam, Valve, or Steam.
 
-## Linux development
+## Cross-platform development
 
 Linux support is under active development on the `linux-support` branch. Shared,
 platform-neutral behavior lives in `Core`; `CLI/Linux` is the current CLI
 frontend. It supports native Steam, Flatpak Steam, SLSsteam diagnostics and
 recovery, guarded configuration changes, and preview-first local file imports.
 
-The Linux Avalonia floating frontend lives in `Desktop`; Windows continues to
-use the existing WinForms floating frontend and OpenSteamTool provider. Run the
-Linux/SLSsteam frontend during development with:
+The shared Avalonia floating frontend lives in `Desktop`. It selects the
+OpenSteamTool backend on Windows and the SLSsteam backend on Linux. Run it with:
 
 ```bash
 dotnet run --project Desktop/TOST.Desktop.csproj
@@ -62,8 +61,8 @@ lists them and `restore-launch <archive-id> --apply` restores guarded entries.
 
 ### Build and verify
 
-The repository solution contains the Windows frontend, shared core, Linux CLI,
-and dependency-free test runner:
+The repository solution contains the shared Avalonia frontend, shared core,
+Linux CLI, and dependency-free test runner:
 
 ```bash
 dotnet build TOST.sln --configuration Release
@@ -92,12 +91,19 @@ install with `sudo pacman -U tost-<version>-1-x86_64.pkg.tar.zst`.
 
 ### Game Manager
 ![TOST Game Manager](Assets/ss/game-manager.png)
+
+### Settings
+![TOST Settings](Assets/ss/tost-settings.png)
+
+### Dialogs and imports
+![TOST update check](Assets/ss/update-check.png)
+![TOST file import](Assets/ss/files-dropped.png)
 </details>
 
 ## Features
 
 - Floating icon and system tray controls
-- Automatic OpenSteamTool installation and repair from its official release
+- Automatic OpenSteamTool installation/repair on Windows and checksum-verified SLSsteam installation/repair on Linux
 - Drag-and-drop installation for local packages
 - Game Manager for one-click removal and restoration of managed games
 - Automatic Steam detection, file routing, and backups
@@ -111,8 +117,7 @@ files. Local packages can still be imported by dragging them onto TOST.
 
 ## Requirements
 
-- Windows 10 or newer
-- 64-bit Windows
+- Windows 10 or newer, or a supported x64 Linux desktop
 - An existing Steam installation
 
 ## Download
@@ -121,15 +126,18 @@ The recommended download is the `*-Setup.exe` asset on the
 [TOST Releases](https://github.com/sadabx/TOST/releases) page. It installs TOST
 for the current Windows user and enables in-place updates.
 
-The `*-Portable.zip` asset is for users who prefer no installation. Extract the
-complete archive to a writable folder and run `TOST.exe`. Keep every extracted
+The `*-Portable.zip` asset is for Windows users who prefer no installation. Extract the
+complete archive to a writable folder and run `TOST.Desktop.exe`. Keep every extracted
 file together; the portable package is a directory-based application, not a
 single standalone executable.
 
+Linux releases provide a portable `.tar.gz`, AppImage, and Arch package. All use
+the same Avalonia interface as the Windows build.
+
 ## Usage
 
-- Use `Install / Repair OpenSteamTool` to download and apply the latest official
-  OpenSteamTool release automatically.
+- Use `Install / Repair OpenSteamTool` on Windows or `Install / Repair SLSsteam`
+  on Linux to download and apply the latest official integration release.
 - Drag supported files, folders, or ZIP packages onto the floating icon to
   import local packages.
 - Use `Manage Games` to remove an imported game or restore previously removed
@@ -149,7 +157,11 @@ When `Install / Repair OpenSteamTool` is selected, TOST:
 Existing files are backed up before replacement when backups are enabled.
 Restart Steam after installation so the new files take effect.
 
-### File routing
+On Linux, the equivalent menu action downloads SLSsteam's portable release,
+verifies its published SHA-256 digest, installs only the required libraries,
+and configures the guarded native or Flatpak launch hook.
+
+### Windows file routing
 
 | File | Destination |
 | --- | --- |
@@ -165,12 +177,16 @@ Steam is detected from
 `HKCU\Software\Valve\Steam\SteamPath`. If unavailable, TOST falls back to
 `C:\Program Files (x86)\Steam`.
 
+On Linux, Lua files route to `config/stplug-in`, depot manifests to
+`depotcache`, and app manifests to `steamapps`; supported Lua declarations are
+converted into SLSsteam and Steam configuration without executing the Lua.
+
 ## Menu
 
 - `Launch Steam`
 - `Restart Steam`
-- `Install / Repair OpenSteamTool`
-- `View OpenSteamTool Releases`
+- `Install / Repair OpenSteamTool` on Windows or `Install / Repair SLSsteam` on Linux
+- The matching integration's official releases
 - `Open ManifestHub`
 - `Open Steam Folder`
 - `Manage Games`
@@ -182,14 +198,14 @@ Steam is detected from
 
 ## Settings and updates
 
-Installed builds store settings and logs under:
+Installed Windows builds store settings and logs under:
 
 ```text
 %LocalAppData%\TOST\data
 ```
 
-Portable builds store them beside `TOST.exe`. On first launch, TOST copies
-compatible settings and logs from the previous OST locations when possible.
+Portable Windows builds store them beside `TOST.Desktop.exe`. Linux builds use
+the current user's local application-data directory.
 
 ### Game management
 
@@ -237,22 +253,15 @@ TOST/
 |   |   `-- game-manager.png  Game Manager preview
 |   |-- TOST.png              Current Windows and Linux logo
 |   `-- tost.ico              Application and installer icon
-|-- Infrastructure/           Paths, settings, logging, and Windows theming
-|-- Models/                   Installation and game-management data models
-|-- Services/                 Game discovery, removal, recovery, and name lookup
-|-- UI/
-|   |-- Controls/             Reusable dark-themed WinForms controls
-|   |-- FloatingInstallerForm.cs
-|   |-- FloatingInstallerForm.Installation.cs
-|   |-- DropToastForm.cs
-|   |-- GameManagerForm.cs
-|   |-- SettingsForm.cs
-|   `-- TostDialog.cs
+|-- Core/                     Shared Steam, import, integration, and recovery logic
+|-- Desktop/                  Shared Windows/Linux Avalonia floating UI
+|-- CLI/Linux/                Optional Linux command-line frontend
+|-- Legacy/WinForms/          Inactive project file for the retained WinForms reference
+|-- UI/                       Retained legacy WinForms source; not used by releases
 |-- .gitignore
 |-- LICENSE
-|-- Program.cs                Application startup and single-instance handling
 |-- README.md
-|-- TOST.csproj               .NET project
+|-- TOST.sln                  Shared desktop, core, CLI, and tests
 `-- build-release.ps1         Windows build and packaging script
 ```
 

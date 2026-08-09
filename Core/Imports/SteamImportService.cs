@@ -37,8 +37,8 @@ public sealed class SteamImportService
             var inspection = inspector.Inspect(path);
             var destinationDirectory = inspection.Kind switch
             {
-                SteamImportKind.Lua => steam.SlsPluginPath,
-                SteamImportKind.DepotManifest => steam.DepotCachePath,
+                SteamImportKind.Lua => steam.ManagedScriptsPath,
+                SteamImportKind.DepotManifest => steam.ManagedManifestsPath,
                 SteamImportKind.AppManifest => steam.SteamAppsPath,
                 _ => throw new InvalidDataException("Unsupported import type.")
             };

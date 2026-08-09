@@ -33,8 +33,8 @@ public sealed class ManagedGameService
 
     public IReadOnlyList<ManagedGame> FindManagedGames(SteamInstallation installation)
     {
-        var luaRoot = Path.GetFullPath(installation.SlsPluginPath);
-        var manifestRoot = Path.GetFullPath(installation.DepotCachePath);
+        var luaRoot = Path.GetFullPath(installation.ManagedScriptsPath);
+        var manifestRoot = Path.GetFullPath(installation.ManagedManifestsPath);
         if (!Directory.Exists(luaRoot)) return [];
 
         var manifests = FindDepotManifests(manifestRoot);
@@ -101,8 +101,8 @@ public sealed class ManagedGameService
         var archiveId = $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}";
         var archiveDirectory = Path.Combine(Path.GetFullPath(recoveryRoot), archiveId);
         var files = new List<RemovedFileEntry>();
-        foreach (var game in selectedGames) AddFile(files, "Lua", game.LuaPath, installation.SlsPluginPath);
-        foreach (var path in manifestFiles) AddFile(files, "Manifest", path, installation.DepotCachePath);
+        foreach (var game in selectedGames) AddFile(files, "Lua", game.LuaPath, installation.ManagedScriptsPath);
+        foreach (var path in manifestFiles) AddFile(files, "Manifest", path, installation.ManagedManifestsPath);
         var games = selectedGames.Select(game => new RemovedGameEntry(game.AppId, game.DisplayName, Path.GetFileName(game.LuaPath))).ToArray();
         var metadata = new ArchiveMetadata(archiveId, DateTime.UtcNow, games, files);
         var completed = new List<(string Source, string Archived)>();
@@ -111,7 +111,7 @@ public sealed class ManagedGameService
             Directory.CreateDirectory(archiveDirectory);
             foreach (var file in files)
             {
-                var root = file.Kind == "Lua" ? installation.SlsPluginPath : installation.DepotCachePath;
+                var root = file.Kind == "Lua" ? installation.ManagedScriptsPath : installation.ManagedManifestsPath;
                 var source = Path.Combine(root, file.FileName);
                 var archived = Path.Combine(archiveDirectory, file.ArchiveRelativePath);
                 Directory.CreateDirectory(Path.GetDirectoryName(archived)!);

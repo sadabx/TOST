@@ -3,8 +3,8 @@
 - [ ] Extract platform-neutral game, archive, logging, and configuration logic into `Core`.
   - [x] Move managed-game discovery, removal archives, and guarded restoration into the shared core.
 - [x] Define an integration-provider interface shared by OpenSteamTool and SLSsteam.
-- [ ] Move Windows-specific OpenSteamTool behavior into `TOST.Windows`.
-- [x] Keep Windows WinForms/OpenSteamTool and Linux Avalonia/SLSsteam as separate platform frontends.
+- [x] Move Windows-specific OpenSteamTool behavior behind the shared desktop frontend.
+- [x] Use the same compact Avalonia floating UI on Windows/OpenSteamTool and Linux/SLSsteam.
 
 # Linux implementation
 
@@ -41,7 +41,7 @@
 
 # Linux Avalonia floating UI
 
-- [ ] Stabilize and test the shared core and Linux/SLSsteam backend before starting the UI migration.
+- [x] Stabilize the shared core enough to connect both platform backends to Avalonia.
 - [x] Create the Linux `Desktop` Avalonia floating frontend.
 - [x] Add the initial dark navigation shell and cross-platform integration overview.
 - [x] Connect Avalonia Linux import preview/apply and verified SLSsteam installation screens.
@@ -51,7 +51,7 @@
   - [x] Add the Linux Game Manager with native/Flatpak selection and one-click archive/restore actions.
   - [x] Add local Avalonia preferences for the default Steam target, updates, and diagnostic limits.
   - [x] Add a reusable dark confirmation dialog for Avalonia file-changing actions.
-- [ ] Add platform services for startup registration, tray/floating-window behavior, opening folders, and restarting Steam.
+- [x] Add platform services for startup registration, tray/floating-window behavior, opening folders, and restarting Steam.
   - [x] Add guarded native folder-opening actions for TOST data and detected Steam roots.
   - [x] Restart native or Flatpak Steam through its normal shutdown command without killing processes.
   - [x] Add a cross-platform tray menu with saved close-to-tray behavior and explicit exit.
@@ -61,9 +61,9 @@
   - [x] Add guarded Linux desktop autostart for packaged executables without overwriting unmanaged entries.
 - [x] Add drag-and-drop import support to both the Windows WinForms and Linux Avalonia frontends.
   - [x] Connect drag-and-drop selection to the migrated Linux importer.
-- [ ] Match the existing TOST dark styling without depending on native WinForms rendering.
-- [ ] Verify Linux floating-menu feature parity against the Windows frontend where platform behavior overlaps.
-- [x] Retain the WinForms frontend for Windows/OpenSteamTool releases.
+- [x] Match the existing compact TOST dark styling without depending on native WinForms rendering.
+- [ ] Verify Linux floating-menu behavior on a real Linux desktop and Windows behavior on a clean Windows account.
+- [x] Publish the Avalonia frontend for Windows/OpenSteamTool releases; retain WinForms source only as a reference.
 
 # Testing and packaging
 
@@ -76,7 +76,7 @@
 - [x] Replace legacy Windows and Linux package artwork with the current TOST logo.
 - [x] Configure the Linux CLI for self-contained single-file `linux-x64` publishing.
 - [x] Package the Avalonia application for Linux alongside the optional CLI.
-- [x] Keep Windows release packaging on the WinForms/OpenSteamTool application.
+- [x] Switch Windows release packaging to the shared Avalonia/OpenSteamTool application.
 - [ ] Evaluate Flatpak after the Avalonia application is stable; AppImage packaging is connected.
 
 

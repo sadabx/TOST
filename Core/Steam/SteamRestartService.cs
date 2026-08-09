@@ -8,10 +8,29 @@ public sealed class SteamRestartService
     public SteamRestartPlan CreatePlan(
         SteamInstallationKind kind,
         string? pathEnvironment = null,
-        Func<string, bool>? fileExists = null)
+        Func<string, bool>? fileExists = null,
+        string? steamRoot = null)
     {
         pathEnvironment ??= Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
         fileExists ??= File.Exists;
+        if (kind == SteamInstallationKind.Windows)
+        {
+            if (string.IsNullOrWhiteSpace(steamRoot))
+            {
+                throw new DirectoryNotFoundException("The Windows Steam folder is not configured.");
+            }
+
+            var steamExe = Path.Combine(Path.GetFullPath(steamRoot), "steam.exe");
+            if (!fileExists(steamExe))
+            {
+                throw new FileNotFoundException("Steam.exe was not found in the configured Steam folder.", steamExe);
+            }
+
+            return new(kind,
+                new SteamCommand(steamExe, ["-shutdown"]),
+                new SteamCommand(steamExe, []));
+        }
+
         if (kind == SteamInstallationKind.Flatpak)
         {
             var flatpak = FindExecutable("flatpak", pathEnvironment, fileExists);

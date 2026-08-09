@@ -17,6 +17,7 @@ var tests = new (string Name, Action Run)[]
     ("SLSsteam installer verifies and extracts only managed libraries", TestSlsSteamInstaller),
     ("Native and Flatpak launch hooks are guarded and removable", TestLaunchConfiguration),
     ("Imports route into a fake Steam installation and reject conflicts", TestImportRouting),
+    ("Windows imports and game management use the OST Steam layout", TestWindowsImportRouting),
     ("Configuration changes back up and restore exact bytes", TestConfigBackupRestore),
     ("Linux Steam discovery uses only the supplied fake home", TestSteamDiscovery),
     ("SLSsteam libraries archive and restore in a fake installation", TestSlsRecovery),
@@ -281,6 +282,29 @@ static void TestManagedGames()
     var restored = service.RestoreArchive(archive, installation, recovery);
     True(restored.Success && File.Exists(Path.Combine(plugin, "10.lua")) && File.Exists(Path.Combine(depotCache, "20_100.manifest")),
         "Managed game archive was not restored.");
+}
+
+static void TestWindowsImportRouting()
+{
+    using var fixture = new TemporaryDirectory();
+    var source = Path.Combine(fixture.Path, "source");
+    var steamRoot = Path.Combine(fixture.Path, "Steam");
+    Directory.CreateDirectory(source);
+    Directory.CreateDirectory(Path.Combine(steamRoot, "config"));
+    Directory.CreateDirectory(Path.Combine(steamRoot, "steamapps"));
+    var lua = Path.Combine(source, "10.lua");
+    var manifest = Path.Combine(source, "20_100.manifest");
+    File.WriteAllText(lua, "addappid(10)\nsetManifestid(20, \"100\")\n");
+    File.WriteAllText(manifest, "manifest");
+    var installation = new SteamInstallation(steamRoot, SteamInstallationKind.Windows, true, true);
+
+    var imported = new SteamImportService().ApplyNewFiles(installation, [lua, manifest]);
+    True(imported.Success, "Windows OST import did not complete.");
+    True(File.Exists(Path.Combine(steamRoot, "config", "lua", "10.lua")), "Windows Lua did not route to config/lua.");
+    True(File.Exists(Path.Combine(steamRoot, "steamapps", "20_100.manifest")), "Windows manifest did not route to steamapps.");
+
+    var games = new ManagedGameService().FindManagedGames(installation);
+    True(games.Count == 1 && games[0].ManifestPaths.Count == 1, "Windows Game Manager did not use the OST paths.");
 }
 
 static void TestPreferences()

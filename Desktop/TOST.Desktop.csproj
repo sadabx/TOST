@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="12.1.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
+    <PackageReference Include="Velopack" Version="1.2.0" />
     <ProjectReference Include="..\Core\TOST.Core.csproj" />
     <AvaloniaResource Include="..\Assets\TOST.png" Link="Assets\TOST.png" />
   </ItemGroup>
