@@ -25,15 +25,18 @@
 
   <ItemGroup>
     <!-- Nested projects are built independently; do not glob their sources into WinForms. -->
-    <Compile Remove="TOST.Core\**\*.cs" />
-    <Compile Remove="TOST.Core.Tests\**\*.cs" />
-    <Compile Remove="TOST.Linux\**\*.cs" />
-    <EmbeddedResource Remove="TOST.Core\**\*" />
-    <EmbeddedResource Remove="TOST.Core.Tests\**\*" />
-    <EmbeddedResource Remove="TOST.Linux\**\*" />
-    <None Remove="TOST.Core\**\*" />
-    <None Remove="TOST.Core.Tests\**\*" />
-    <None Remove="TOST.Linux\**\*" />
+    <Compile Remove="Core\**\*.cs" />
+    <Compile Remove="Tests\**\*.cs" />
+    <Compile Remove="CLI\**\*.cs" />
+    <Compile Remove="Desktop\**\*.cs" />
+    <EmbeddedResource Remove="Core\**\*" />
+    <EmbeddedResource Remove="Tests\**\*" />
+    <EmbeddedResource Remove="CLI\**\*" />
+    <EmbeddedResource Remove="Desktop\**\*" />
+    <None Remove="Core\**\*" />
+    <None Remove="Tests\**\*" />
+    <None Remove="CLI\**\*" />
+    <None Remove="Desktop\**\*" />
 
     <None Include="Assets\tost.ico" Pack="true" PackagePath="\" />
     <EmbeddedResource Include="Assets\TOST.png" LogicalName="TOST.Assets.TOST.png" />

@@ -8,9 +8,16 @@ Built around the separately maintained [OpenSteamTool](https://github.com/OpenSt
 ## Linux development
 
 Linux support is under active development on the `linux-support` branch. Shared,
-platform-neutral behavior lives in `TOST.Core`; `TOST.Linux` is the current CLI
+platform-neutral behavior lives in `Core`; `CLI/Linux` is the current CLI
 frontend. It supports native Steam, Flatpak Steam, SLSsteam diagnostics and
 recovery, guarded configuration changes, and preview-first local file imports.
+
+The cross-platform Avalonia frontend now lives in `Desktop`. Run its
+current migration preview on Windows or Linux with:
+
+```bash
+dotnet run --project Desktop/TOST.Desktop.csproj
+```
 
 Linux imports route Lua to `config/stplug-in`, depot manifests to `depotcache`,
 and app manifests to `steamapps`. TOST safely parses supported OpenSteamTool Lua
@@ -20,22 +27,22 @@ Steam's `config/config.vdf`. Both configuration files are previewed, backed up,
 and atomically replaced. Explicit DLC-parent mapping is still pending.
 
 ```bash
-dotnet run --project TOST.Linux -- status
-dotnet run --project TOST.Linux -- config
-dotnet run --project TOST.Linux -- check-updates
-dotnet run --project TOST.Linux -- install-slssteam
-dotnet run --project TOST.Linux -- configure-launch
-dotnet run --project TOST.Linux -- configure-launch --flatpak
-dotnet run --project TOST.Linux -- launch-recovery
-dotnet run --project TOST.Linux -- inspect-import ./game.lua ./123_456.manifest
-dotnet run --project TOST.Linux -- import ./game.lua ./123_456.manifest
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- status
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- config
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- check-updates
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- install-slssteam
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- configure-launch
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- configure-launch --flatpak
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- launch-recovery
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- inspect-import ./game.lua ./123_456.manifest
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- import ./game.lua ./123_456.manifest
 ```
 
 Mutating commands preview by default and require `--apply`. Run the complete
 command list with:
 
 ```bash
-dotnet run --project TOST.Linux -- help
+dotnet run --project CLI/Linux/TOST.Linux.csproj -- help
 ```
 
 Set `STEAM_DIR` when Steam uses a custom native root. Use `--flatpak` on commands
@@ -59,18 +66,19 @@ and dependency-free test runner:
 
 ```bash
 dotnet build TOST.sln --configuration Release
-dotnet run --project TOST.Core.Tests --configuration Release
+dotnet run --project Tests/Core/TOST.Core.Tests.csproj --configuration Release
 ```
 
 Publish a self-contained, single-file Linux x64 executable with:
 
 ```bash
-dotnet publish TOST.Linux --configuration Release --runtime linux-x64 --self-contained true --output artifacts/linux-x64
+dotnet publish CLI/Linux/TOST.Linux.csproj --configuration Release --runtime linux-x64 --self-contained true --output artifacts/linux-x64
 chmod +x artifacts/linux-x64/tost
 ```
 
-Tagged releases and manual workflow runs also produce a portable `.tar.gz`, an
-`x86_64.AppImage`, an Arch Linux `.pkg.tar.zst`, and `SHA256SUMS-linux.txt`.
+Tagged releases and manual workflow runs produce the Avalonia desktop app plus
+the optional `tost-cli` in a portable `.tar.gz`, an `x86_64.AppImage`, an Arch
+Linux `.pkg.tar.zst`, and `SHA256SUMS-linux.txt`.
 AppImage users can mark the file executable and run it directly; Arch users can
 install with `sudo pacman -U tost-<version>-1-x86_64.pkg.tar.zst`.
 

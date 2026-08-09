@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-version="${1:?usage: build-packages.sh VERSION PUBLISH_DIR OUTPUT_DIR}"
-publish_dir="$(realpath "${2:?missing publish directory}")"
-mkdir -p "${3:?missing output directory}"
-output_dir="$(realpath "$3")"
+version="${1:?usage: build-packages.sh VERSION DESKTOP_DIR CLI_DIR OUTPUT_DIR}"
+desktop_dir="$(realpath "${2:?missing desktop publish directory}")"
+cli_dir="$(realpath "${3:?missing CLI publish directory}")"
+mkdir -p "${4:?missing output directory}"
+output_dir="$(realpath "$4")"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work_dir="$(mktemp -d)"
 trap 'rm -rf -- "$work_dir"' EXIT
 
-test -x "$publish_dir/tost"
-install -Dm755 "$publish_dir/tost" "$work_dir/portable/tost"
+test -x "$desktop_dir/TOST.Desktop"
+test -x "$cli_dir/tost"
+install -Dm755 "$desktop_dir/TOST.Desktop" "$work_dir/portable/tost"
+install -Dm755 "$cli_dir/tost" "$work_dir/portable/tost-cli"
 install -Dm644 "$repo_root/LICENSE" "$work_dir/portable/LICENSE"
 tar -C "$work_dir/portable" -czf "$output_dir/TOST-${version}-linux-x64.tar.gz" .
 
 appdir="$work_dir/TOST.AppDir"
-install -Dm755 "$publish_dir/tost" "$appdir/usr/bin/tost"
+install -Dm755 "$desktop_dir/TOST.Desktop" "$appdir/usr/bin/tost"
+install -Dm755 "$cli_dir/tost" "$appdir/usr/bin/tost-cli"
 install -Dm644 "$repo_root/LICENSE" "$appdir/usr/share/licenses/tost/LICENSE"
 install -Dm644 "$repo_root/packaging/linux/tost.desktop" "$appdir/usr/share/applications/tost.desktop"
 install -Dm644 "$repo_root/packaging/linux/tost.appdata.xml" "$appdir/usr/share/metainfo/tost.appdata.xml"
@@ -32,7 +36,8 @@ fi
 ARCH=x86_64 VERSION="$version" APPIMAGE_EXTRACT_AND_RUN=1 "$appimagetool" --no-appstream "$appdir" "$output_dir/TOST-${version}-x86_64.AppImage"
 
 pkgroot="$work_dir/arch-root"
-install -Dm755 "$publish_dir/tost" "$pkgroot/usr/bin/tost"
+install -Dm755 "$desktop_dir/TOST.Desktop" "$pkgroot/usr/bin/tost"
+install -Dm755 "$cli_dir/tost" "$pkgroot/usr/bin/tost-cli"
 install -Dm644 "$repo_root/LICENSE" "$pkgroot/usr/share/licenses/tost/LICENSE"
 install -Dm644 "$repo_root/packaging/linux/tost.desktop" "$pkgroot/usr/share/applications/tost.desktop"
 install -Dm644 "$repo_root/packaging/linux/tost.appdata.xml" "$pkgroot/usr/share/metainfo/tost.appdata.xml"

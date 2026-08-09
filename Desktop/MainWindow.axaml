@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Trionine.TOST.Desktop.MainWindow"
+        Title="TOST"
+        Width="1060" Height="700" MinWidth="820" MinHeight="560"
+        Background="#101311"
+        Icon="avares://TOST.Desktop/Assets/TOST.png">
+  <Grid ColumnDefinitions="230,*">
+    <Border Grid.Column="0" Background="#151916" BorderBrush="#2A302B" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,*,Auto" Margin="14">
+        <StackPanel Orientation="Horizontal" Spacing="12" Margin="5,7,5,20">
+          <Image Source="avares://TOST.Desktop/Assets/TOST.png" Width="48" Height="48" />
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="TOST" FontSize="22" FontWeight="Bold" />
+            <TextBlock Text="Steam tools" Foreground="#8C9A90" />
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="1">
+          <Button Classes="nav" Content="Overview" Click="ShowOverview" />
+          <Button Classes="nav" Content="Game Manager" Click="ShowGameManager" />
+          <Button Classes="nav" Content="Import Files" Click="ShowImports" />
+          <Button Classes="nav" Content="SLSsteam / OST" Click="ShowIntegration" />
+          <Button Classes="nav" Content="Recovery" Click="ShowRecovery" />
+          <Button Classes="nav" Content="Logs" Click="ShowLogs" />
+          <Button Classes="nav" Content="Settings" Click="ShowSettings" />
+        </StackPanel>
+        <TextBlock Grid.Row="2" Text="TOST 1.2.0 • Avalonia preview" Foreground="#708077" FontSize="11" Margin="6,12" />
+      </Grid>
+    </Border>
+    <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="28,22">
+      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+        <StackPanel>
+          <TextBlock x:Name="PageTitle" Text="Overview" FontSize="28" FontWeight="SemiBold" />
+          <TextBlock x:Name="PageSubtitle" Text="Cross-platform Steam integration status" Foreground="#91A096" Margin="0,4,0,0" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="Refresh" Click="RefreshCurrentPage" Padding="16,8" VerticalAlignment="Center" />
+      </Grid>
+      <ScrollViewer Grid.Row="1">
+        <ContentControl x:Name="PageContent" />
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</Window>

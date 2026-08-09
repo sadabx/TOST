@@ -4,6 +4,6 @@ Name=TOST
 Comment=Manage TOST Steam integrations on Linux
 Exec=tost
 Icon=tost
-Terminal=true
+Terminal=false
 Categories=Utility;System;
 Keywords=Steam;SLSsteam;TOST;

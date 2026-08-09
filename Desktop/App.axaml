@@ -1,0 +1,47 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Trionine.TOST.Desktop.App"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Button.nav">
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="14,11" />
+      <Setter Property="Margin" Value="0,2" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+    <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#26352B" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="#1B1F1C" />
+      <Setter Property="BorderBrush" Value="#303832" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="18" />
+    </Style>
+  </Application.Styles>
+  <TrayIcon.Icons>
+    <TrayIcons>
+      <TrayIcon Icon="avares://TOST.Desktop/Assets/TOST.png"
+                ToolTipText="TOST"
+                Clicked="ShowMainWindow">
+        <TrayIcon.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Open TOST" Click="ShowMainWindow" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Game Manager" Click="ShowGameManager" />
+            <NativeMenuItem Header="Import Files" Click="ShowImports" />
+            <NativeMenuItem Header="SLSsteam / OST" Click="ShowIntegration" />
+            <NativeMenuItem Header="Recovery" Click="ShowRecovery" />
+            <NativeMenuItem Header="Logs" Click="ShowLogs" />
+            <NativeMenuItem Header="Settings" Click="ShowSettings" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Exit" Click="ExitApplication" />
+          </NativeMenu>
+        </TrayIcon.Menu>
+      </TrayIcon>
+    </TrayIcons>
+  </TrayIcon.Icons>
+</Application>

@@ -29,8 +29,10 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then value="${GITHUB_REF_NAME#v}"; else value="${{ inputs.version }}"; fi
           [[ "$value" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
           echo "value=$value" >> "$GITHUB_OUTPUT"
-      - name: Publish self-contained Linux executable
-        run: dotnet publish TOST.Linux/TOST.Linux.csproj -c Release -r linux-x64 --self-contained true -p:Version=${{ steps.version.outputs.value }} -o artifacts/linux-publish
+      - name: Publish self-contained Linux desktop application
+        run: dotnet publish Desktop/TOST.Desktop.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false -p:Version=${{ steps.version.outputs.value }} -o artifacts/linux-desktop
+      - name: Publish self-contained Linux CLI
+        run: dotnet publish CLI/Linux/TOST.Linux.csproj -c Release -r linux-x64 --self-contained true -p:Version=${{ steps.version.outputs.value }} -o artifacts/linux-cli
       - name: Download checksum-verified appimagetool
         env:
           GH_TOKEN: ${{ github.token }}
@@ -46,7 +48,7 @@ jobs:
       - name: Build portable, AppImage, and Arch packages
         env:
           APPIMAGETOOL: ${{ github.workspace }}/artifacts/appimagetool
-        run: bash packaging/linux/build-packages.sh "${{ steps.version.outputs.value }}" artifacts/linux-publish artifacts/linux-release
+        run: bash packaging/linux/build-packages.sh "${{ steps.version.outputs.value }}" artifacts/linux-desktop artifacts/linux-cli artifacts/linux-release
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:

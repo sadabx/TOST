@@ -1,6 +1,8 @@
 using Trionine.TOST.Core.Imports;
 using Trionine.TOST.Core.Integrations.SlsSteam;
 using Trionine.TOST.Core.Steam;
+using Trionine.TOST.Core.GameManagement;
+using Trionine.TOST.Core.Configuration;
 using System.IO.Compression;
 using System.Net;
 using System.Security.Cryptography;
@@ -17,7 +19,11 @@ var tests = new (string Name, Action Run)[]
     ("Imports route into a fake Steam installation and reject conflicts", TestImportRouting),
     ("Configuration changes back up and restore exact bytes", TestConfigBackupRestore),
     ("Linux Steam discovery uses only the supplied fake home", TestSteamDiscovery),
-    ("SLSsteam libraries archive and restore in a fake installation", TestSlsRecovery)
+    ("SLSsteam libraries archive and restore in a fake installation", TestSlsRecovery),
+    ("Managed games archive only unshared manifests and restore safely", TestManagedGames),
+    ("Desktop preferences save atomically and normalize bounded values", TestPreferences),
+    ("Steam restart plans use native commands without process termination", TestSteamRestartPlan),
+    ("Linux autostart manages only its exact marker-owned desktop entry", TestLinuxAutostart)
 };
 
 var failures = 0;
@@ -245,6 +251,92 @@ static void TestSlsRecovery()
     True(!File.Exists(paths.MainLibraryPath), "Main library remained after archival.");
     service.Restore(paths, "Native", recovery, removed.ArchiveId!);
     True(File.Exists(paths.MainLibraryPath) && File.Exists(paths.InjectorLibraryPath), "Libraries were not restored.");
+}
+
+static void TestManagedGames()
+{
+    using var fixture = new TemporaryDirectory();
+    var plugin = Path.Combine(fixture.Path, "config", "stplug-in");
+    var depotCache = Path.Combine(fixture.Path, "depotcache");
+    var steamApps = Path.Combine(fixture.Path, "steamapps");
+    Directory.CreateDirectory(plugin);
+    Directory.CreateDirectory(depotCache);
+    Directory.CreateDirectory(steamApps);
+    File.WriteAllText(Path.Combine(plugin, "10.lua"), "addappid(10)\nsetManifestid(20, \"100\")\nsetManifestid(30, \"200\")\n");
+    File.WriteAllText(Path.Combine(plugin, "11.lua"), "addappid(11)\nsetManifestid(30, \"200\")\n");
+    File.WriteAllText(Path.Combine(depotCache, "20_100.manifest"), "one");
+    File.WriteAllText(Path.Combine(depotCache, "30_200.manifest"), "shared");
+    File.WriteAllText(Path.Combine(steamApps, "appmanifest_10.acf"),
+        "\"AppState\"\n{\n\"appid\" \"10\"\n\"name\" \"Test Game\"\n}");
+    var installation = new SteamInstallation(fixture.Path, SteamInstallationKind.Native, true, true);
+    var recovery = Path.Combine(fixture.Path, "recovery");
+    var service = new ManagedGameService();
+    var games = service.FindManagedGames(installation);
+    True(games.Count == 2 && games[0].DisplayName == "Test Game", "Managed games or local name were not detected.");
+    var removed = service.RemoveGames([games[0]], games, installation, recovery);
+    True(removed.Success && !File.Exists(Path.Combine(plugin, "10.lua")), "Selected Lua file was not archived.");
+    True(!File.Exists(Path.Combine(depotCache, "20_100.manifest")), "Unshared manifest was not archived.");
+    True(File.Exists(Path.Combine(depotCache, "30_200.manifest")), "Shared manifest should have remained in place.");
+    var archive = service.FindRemovedGames(recovery).Single();
+    var restored = service.RestoreArchive(archive, installation, recovery);
+    True(restored.Success && File.Exists(Path.Combine(plugin, "10.lua")) && File.Exists(Path.Combine(depotCache, "20_100.manifest")),
+        "Managed game archive was not restored.");
+}
+
+static void TestPreferences()
+{
+    using var fixture = new TemporaryDirectory();
+    var path = Path.Combine(fixture.Path, "settings", "desktop.json");
+    var store = new TostPreferencesStore(path);
+    True(store.Load() == new TostPreferences(), "Missing settings did not return safe defaults.");
+    store.Save(new TostPreferences
+    {
+        PreferredSteamInstallation = SteamInstallationKind.Flatpak,
+        AutomaticallyCheckForUpdates = false,
+        CloseToTray = false,
+        ShowFloatingIcon = false,
+        FloatingIconAlwaysOnTop = false,
+        DiagnosticTailLines = 9_999
+    });
+    var loaded = store.Load();
+    True(loaded.PreferredSteamInstallation == SteamInstallationKind.Flatpak &&
+         !loaded.AutomaticallyCheckForUpdates && !loaded.CloseToTray && !loaded.ShowFloatingIcon &&
+         !loaded.FloatingIconAlwaysOnTop && loaded.DiagnosticTailLines == 2_000,
+        "Saved preferences were not preserved and normalized.");
+    File.WriteAllText(path, "not json");
+    True(store.Load() == new TostPreferences(), "Invalid settings did not fall back to safe defaults.");
+}
+
+static void TestSteamRestartPlan()
+{
+    var separator = Path.PathSeparator.ToString();
+    var paths = $"{Path.Combine(Path.GetTempPath(), "missing")}{separator}{Path.Combine(Path.GetTempPath(), "bin")}";
+    bool Exists(string path) => Path.GetDirectoryName(path) == Path.Combine(Path.GetTempPath(), "bin");
+    var service = new SteamRestartService();
+    var native = service.CreatePlan(SteamInstallationKind.Native, paths, Exists);
+    True(native.Shutdown.Arguments.SequenceEqual(["-shutdown"]) && native.Launch.Arguments.Count == 0,
+        "Native restart did not use Steam's normal shutdown command.");
+    var flatpak = service.CreatePlan(SteamInstallationKind.Flatpak, paths, Exists);
+    True(flatpak.Shutdown.Arguments.SequenceEqual(["run", "com.valvesoftware.Steam", "-shutdown"]) &&
+         flatpak.Launch.Arguments.SequenceEqual(["run", "com.valvesoftware.Steam"]),
+        "Flatpak restart commands were not created safely.");
+}
+
+static void TestLinuxAutostart()
+{
+    using var fixture = new TemporaryDirectory();
+    var executable = Path.Combine(fixture.Path, "TOST App");
+    File.WriteAllText(executable, "binary");
+    var directory = Path.Combine(fixture.Path, "autostart");
+    var service = new LinuxAutostartService();
+    True(service.Inspect(directory, executable).State == AutostartState.Disabled, "Missing autostart entry was not disabled.");
+    var enabled = service.Enable(directory, executable);
+    True(enabled.State == AutostartState.Enabled && File.ReadAllText(enabled.Path).Contains("Exec=\""), "Autostart entry was not safely created.");
+    File.AppendAllText(enabled.Path, "modified=true\n");
+    True(service.Inspect(directory, executable).State == AutostartState.Conflict, "Modified autostart entry was not protected.");
+    File.WriteAllText(enabled.Path, "unmanaged");
+    try { service.Disable(directory, executable); throw new InvalidOperationException("Unmanaged autostart entry was removed."); }
+    catch (IOException) { }
 }
 
 static void True(bool condition, string message)
