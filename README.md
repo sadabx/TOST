@@ -5,143 +5,6 @@ TOST uses one shared Avalonia floating desktop interface on Windows and Linux. O
 
 TOST is not the closed-source SteamTools app and has no ownership, maintenance, or endorsement from OpenSteamTool, SLSsteam, Valve, or Steam.
 
-## Cross-platform development
-
-Linux support is under active development on the `linux-support` branch. Shared,
-platform-neutral behavior lives in `Core`; `CLI/Linux` is the current CLI
-frontend. It supports native Steam, Flatpak Steam, SLSsteam diagnostics and
-recovery, guarded configuration changes, and preview-first local file imports.
-
-The shared Avalonia floating frontend lives in `Desktop`. It selects the
-OpenSteamTool backend on Windows and the SLSsteam backend on Linux. Run it with:
-
-```bash
-dotnet run --project Desktop/TOST.Desktop.csproj
-```
-
-Linux imports route Lua to `config/stplug-in`, depot manifests to `depotcache`,
-and app manifests to `steamapps`. TOST safely parses supported OpenSteamTool Lua
-declarations without executing them, translates App IDs, tokens, and manifest
-overrides into SLSsteam's official `config.yaml`, and registers depot keys in
-Steam's `config/config.vdf`. Both configuration files are previewed, backed up,
-and atomically replaced. Explicit DLC-parent mapping is still pending.
-
-```bash
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- status
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- config
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- check-updates
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- install-slssteam
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- configure-launch
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- configure-launch --flatpak
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- launch-recovery
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- inspect-import ./game.lua ./123_456.manifest
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- import ./game.lua ./123_456.manifest
-```
-
-Mutating commands preview by default and require `--apply`. Run the complete
-command list with:
-
-```bash
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- help
-```
-
-Set `STEAM_DIR` when Steam uses a custom native root. Use `--flatpak` on commands
-that need to select Flatpak Steam explicitly. TOST does not execute imported Lua
-or unverified upstream installers, and does not claim that library visibility
-guarantees download entitlement, launch support, multiplayer, or anti-cheat
-compatibility. `install-slssteam --apply` downloads the portable asset from the
-pinned official GitHub release, verifies its published SHA-256 digest, and
-extracts only `SLSsteam.so` and `library-inject.so`.
-
-`configure-launch` creates guarded native Steam wrappers; `--flatpak` creates a
-per-user Flatpak environment override. Both preview by default. TOST refuses to
-overwrite or remove hooks that are unmanaged or were modified after creation.
-Removal archives managed hooks under TOST recovery storage; `launch-recovery`
-lists them and `restore-launch <archive-id> --apply` restores guarded entries.
-
-### Build and verify
-
-The repository solution contains the shared Avalonia frontend, shared core,
-Linux CLI, and dependency-free test runner:
-
-```bash
-dotnet build TOST.sln --configuration Release
-dotnet run --project Tests/Core/TOST.Core.Tests.csproj --configuration Release
-```
-
-Publish a self-contained, single-file Linux x64 executable with:
-
-```bash
-dotnet publish CLI/Linux/TOST.Linux.csproj --configuration Release --runtime linux-x64 --self-contained true --output artifacts/linux-x64
-chmod +x artifacts/linux-x64/tost
-```
-
-Pushing a version tag runs the GitHub release workflow. It tests and packages
-Windows and Linux, creates one GitHub Release with a `What's new` list generated
-from commits since the previous tag, and uploads all platform assets
-automatically:
-
-```bash
-git tag v2.0.1
-git push origin v2.0.1
-```
-
-No personal access token is needed because the workflow uses GitHub's scoped
-token. The workflow can also be run manually for an existing tag from the
-Actions page. Linux assets include the Avalonia desktop app plus the optional
-`tost-cli` in a portable `.tar.gz`, an `x86_64.AppImage`, a Debian/Ubuntu
-`.deb`, an Arch Linux `.pkg.tar.zst`, and `SHA256SUMS-linux.txt`.
-AppImage users can mark the file executable and run it directly; Arch users can
-install with `sudo pacman -U tost-<version>-1-x86_64.pkg.tar.zst`; Debian and
-Ubuntu users can install with `sudo apt install ./tost_<version>_amd64.deb`.
-
-## Screenshots
-<details>
-<summary>Click to expand screenshots</summary>
-
-### Menu
-![TOST menu](Assets/ss/TOST.png)
-
-### Game Manager
-![TOST Game Manager](Assets/ss/game-manager.png)
-
-### Settings
-![TOST Settings](Assets/ss/tost-settings.png)
-
-### Dialogs and imports
-![TOST update check](Assets/ss/update-check.png)
-![TOST file import](Assets/ss/files-dropped.png)
-</details>
-
-## Features
-
-- Floating icon and system tray controls
-- Automatic OpenSteamTool installation/repair on Windows and checksum-verified SLSsteam installation/repair on Linux
-- Drag-and-drop installation for local packages
-- Game Manager for one-click removal and restoration of managed games
-- Automatic Steam detection, file routing, and backups
-- Import notifications, logs, and useful shortcuts
-- Installed and portable builds with update support
-
-TOST does not bundle OpenSteamTool files. Selecting
-`Install / Repair OpenSteamTool` explicitly downloads the latest release ZIP
-from the official OpenSteamTool GitHub repository and installs its supported
-files. Local packages can still be imported by dragging them onto TOST.
-
-## Requirements
-
-- Windows 10 or newer, or a supported x64 Linux desktop
-- An existing Steam installation
-
-## Download
-
-The recommended download is the `*-Setup.exe` asset on the
-[TOST Releases](https://github.com/sadabx/TOST/releases) page. It installs TOST
-for the current Windows user and enables in-place updates.
-
-The `*-Portable.zip` asset is for Windows users who prefer no installation. Extract the
-complete archive to a writable folder and run `TOST.Desktop.exe`. Keep every extracted
-
 ## Screenshots
 <details>
 <summary>Click to expand screenshots</summary>
@@ -228,15 +91,14 @@ and configures the guarded native or Flatpak launch hook.
 | `OpenSteamTool.dll` | Steam root |
 | `dwmapi.dll` | Steam root |
 | `xinput1_4.dll` | Steam root |
-| `socialclub64.dll` | Steam root (Rockstar workaround) |
-| `Activation64.dll` | Steam root (EA workaround) |
-| `uplay_r1_loader64.dll` | Steam root (Ubisoft workaround) |
 | `opensteamtool.toml` | Steam root |
 | `*.lua` | `<Steam>\config\lua` |
 | `appmanifest_*.acf` | `<Steam>\steamapps` |
 | `*.manifest` | `<Steam>\steamapps` |
 
-Steam is detected from `HKCU\Software\Valve\Steam\SteamPath`. If unavailable, TOST falls back to `C:\Program Files (x86)\Steam`.
+Steam is detected from
+`HKCU\Software\Valve\Steam\SteamPath`. If unavailable, TOST falls back to
+`C:\Program Files (x86)\Steam`.
 
 On Linux, Lua files route to `config/stplug-in`, depot manifests to
 `depotcache`, and app manifests to `steamapps`; supported Lua declarations are
@@ -256,6 +118,17 @@ converted into SLSsteam and Steam configuration without executing the Lua.
 - `Open Logs`
 - `Hide Floating Icon`
 - `Exit`
+
+## Settings and updates
+
+Installed Windows builds store settings and logs under:
+
+```text
+%LocalAppData%\TOST\data
+```
+
+Portable Windows builds store them beside `TOST.Desktop.exe`. Linux builds use
+the current user's local application-data directory.
 
 ### Game management
 

@@ -5,7 +5,7 @@ publish/
 package/
 artifacts/
 Releases/
-release-notes.md
+cross-platform.md
 publish-release.ps1
 logs/
 installer-settings.json
