@@ -86,6 +86,6 @@
 
 # Third-party launcher workarounds
 
-- [ ] Rockstar (`socialclub64.dll`)
-- [ ] EA (`Activation64.dll`)
-- [ ] Ubisoft (`uplay_r1_loader64.dll`)
+- [x] Rockstar (`socialclub64.dll`)
+- [x] EA (`Activation64.dll`)
+- [x] Ubisoft (`uplay_r1_loader64.dll`)

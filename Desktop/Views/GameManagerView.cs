@@ -12,6 +12,7 @@ namespace Trionine.TOST.Desktop.Views;
 internal sealed class GameManagerView : UserControl
 {
     private readonly ManagedGameService service = new();
+    private readonly LauncherWorkaroundService workaroundService = new();
     private readonly ComboBox installation = new() { Width = 245 };
     private readonly Grid targetBar;
     private readonly ListBox games = new();
@@ -23,6 +24,10 @@ internal sealed class GameManagerView : UserControl
     };
     private readonly Button remove = PrimaryButton("Remove Selected");
     private readonly Button restore = PrimaryButton("Restore Selected");
+    private readonly Button rockstarBypass = SecondaryButton("Rockstar Bypass");
+    private readonly Button eaBypass = SecondaryButton("EA Bypass");
+    private readonly Button ubiBypass = SecondaryButton("Ubisoft Bypass");
+    private readonly Button clearBypass = SecondaryButton("Clear Bypass");
     private IReadOnlyList<ManagedGame> managedGames = [];
     private int refreshGeneration;
 
@@ -30,6 +35,10 @@ internal sealed class GameManagerView : UserControl
     {
         remove.IsEnabled = false;
         restore.IsEnabled = false;
+        rockstarBypass.IsEnabled = false;
+        eaBypass.IsEnabled = false;
+        ubiBypass.IsEnabled = false;
+        clearBypass.IsEnabled = false;
 
         var refresh = SecondaryButton("Refresh");
         refresh.Click += async (_, _) => await RefreshAsync();
@@ -37,6 +46,10 @@ internal sealed class GameManagerView : UserControl
         recovery.SelectionChanged += (_, _) => UpdateActions();
         remove.Click += async (_, _) => await RemoveSelectedAsync();
         restore.Click += async (_, _) => await RestoreSelectedAsync();
+        rockstarBypass.Click += async (_, _) => await ApplyWorkaroundAsync(LauncherWorkaroundKind.Rockstar);
+        eaBypass.Click += async (_, _) => await ApplyWorkaroundAsync(LauncherWorkaroundKind.EA);
+        ubiBypass.Click += async (_, _) => await ApplyWorkaroundAsync(LauncherWorkaroundKind.Ubisoft);
+        clearBypass.Click += async (_, _) => await ClearWorkaroundsAsync();
 
         games.ItemTemplate = new FuncDataTemplate<GameItem>((item, _) => CreateGameRow(item));
 
@@ -100,7 +113,7 @@ internal sealed class GameManagerView : UserControl
             Orientation = Orientation.Horizontal,
             Spacing = 8,
             Margin = new Thickness(8, 8, 8, 6),
-            Children = { remove, refresh }
+            Children = { remove, rockstarBypass, eaBypass, ubiBypass, clearBypass, refresh }
         };
         var page = new Grid
         {
@@ -284,9 +297,43 @@ internal sealed class GameManagerView : UserControl
 
     private void UpdateActions()
     {
-        remove.IsEnabled = games.ItemsSource?.OfType<GameItem>().Any(item => item.Selected) == true &&
-                           SelectedInstallation is not null;
+        var hasSelectedGames = games.ItemsSource?.OfType<GameItem>().Any(item => item.Selected) == true && SelectedInstallation is not null;
+        remove.IsEnabled = hasSelectedGames;
+        rockstarBypass.IsEnabled = hasSelectedGames;
+        eaBypass.IsEnabled = hasSelectedGames;
+        ubiBypass.IsEnabled = hasSelectedGames;
+        clearBypass.IsEnabled = hasSelectedGames;
         restore.IsEnabled = recovery.SelectedItem is ArchiveItem && SelectedInstallation is not null;
+    }
+
+    private async Task ApplyWorkaroundAsync(LauncherWorkaroundKind kind)
+    {
+        if (SelectedInstallation is not { } steam) return;
+        var selected = games.ItemsSource?.OfType<GameItem>().Where(item => item.Selected).Select(item => item.Game).ToArray() ?? [];
+        if (selected.Length == 0) return;
+
+        foreach (var game in selected)
+        {
+            var result = workaroundService.ApplyWorkaround(game, kind, steam);
+            status.Text = result.Message;
+        }
+        await RefreshAsync();
+    }
+
+    private async Task ClearWorkaroundsAsync()
+    {
+        if (SelectedInstallation is not { } steam) return;
+        var selected = games.ItemsSource?.OfType<GameItem>().Where(item => item.Selected).Select(item => item.Game).ToArray() ?? [];
+        if (selected.Length == 0) return;
+
+        foreach (var game in selected)
+        {
+            workaroundService.RemoveWorkaround(game, LauncherWorkaroundKind.Rockstar, steam);
+            workaroundService.RemoveWorkaround(game, LauncherWorkaroundKind.EA, steam);
+            var result = workaroundService.RemoveWorkaround(game, LauncherWorkaroundKind.Ubisoft, steam);
+            status.Text = result.Message;
+        }
+        await RefreshAsync();
     }
 
     private async Task RemoveSelectedAsync()

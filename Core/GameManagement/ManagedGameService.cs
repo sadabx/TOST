@@ -9,7 +9,8 @@ public sealed record ManagedGame(
     string? Name,
     string LuaPath,
     IReadOnlyList<string> DepotIds,
-    IReadOnlyList<string> ManifestPaths)
+    IReadOnlyList<string> ManifestPaths,
+    string? InstallDirectory = null)
 {
     public string DisplayName => string.IsNullOrWhiteSpace(Name) ? $"App {AppId}" : Name;
 }
@@ -54,7 +55,8 @@ public sealed class ManagedGameService
                     : parsed.AppIds.Where(id => !id.Equals(appId, StringComparison.Ordinal)).ToArray();
                 var paths = depotIds.Where(manifests.ContainsKey).SelectMany(id => manifests[id])
                     .Distinct(StringComparer.Ordinal).OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();
-                games.Add(new ManagedGame(appId, FindGameName(installation.SteamAppsPath, appId), path, depotIds, paths));
+                var appManifest = FindAppManifest(installation.SteamAppsPath, appId);
+                games.Add(new ManagedGame(appId, appManifest?.Name, path, depotIds, paths, appManifest?.InstallDirectory));
             }
             catch (InvalidDataException)
             {
@@ -166,9 +168,9 @@ public sealed class ManagedGameService
         }
     }
 
-    private string? FindGameName(string steamAppsRoot, string appId)
+    private SteamAppManifest? FindAppManifest(string steamAppsRoot, string appId)
     {
-        try { return appManifestParser.Parse(Path.Combine(steamAppsRoot, $"appmanifest_{appId}.acf")).Name; }
+        try { return appManifestParser.Parse(Path.Combine(steamAppsRoot, $"appmanifest_{appId}.acf")); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { return null; }
     }
 

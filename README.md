@@ -141,6 +141,53 @@ for the current Windows user and enables in-place updates.
 
 The `*-Portable.zip` asset is for Windows users who prefer no installation. Extract the
 complete archive to a writable folder and run `TOST.Desktop.exe`. Keep every extracted
+
+## Screenshots
+<details>
+<summary>Click to expand screenshots</summary>
+
+### Menu
+![TOST menu](Assets/ss/TOST.png)
+
+### Game Manager
+![TOST Game Manager](Assets/ss/game-manager.png)
+
+### Settings
+![TOST Settings](Assets/ss/tost-settings.png)
+
+### Dialogs and imports
+![TOST update check](Assets/ss/update-check.png)
+![TOST file import](Assets/ss/files-dropped.png)
+</details>
+
+## Features
+
+- Floating icon and system tray controls
+- Automatic OpenSteamTool installation/repair on Windows and checksum-verified SLSsteam installation/repair on Linux
+- Drag-and-drop installation for local packages
+- Game Manager for one-click removal and restoration of managed games
+- Automatic Steam detection, file routing, and backups
+- Import notifications, logs, and useful shortcuts
+- Installed and portable builds with update support
+
+TOST does not bundle OpenSteamTool files. Selecting
+`Install / Repair OpenSteamTool` explicitly downloads the latest release ZIP
+from the official OpenSteamTool GitHub repository and installs its supported
+files. Local packages can still be imported by dragging them onto TOST.
+
+## Requirements
+
+- Windows 10 or newer, or a supported x64 Linux desktop
+- An existing Steam installation
+
+## Download
+
+The recommended download is the `*-Setup.exe` asset on the
+[TOST Releases](https://github.com/sadabx/TOST/releases) page. It installs TOST
+for the current Windows user and enables in-place updates.
+
+The `*-Portable.zip` asset is for Windows users who prefer no installation. Extract the
+complete archive to a writable folder and run `TOST.Desktop.exe`. Keep every extracted
 file together; the portable package is a directory-based application, not a
 single standalone executable.
 
@@ -181,14 +228,15 @@ and configures the guarded native or Flatpak launch hook.
 | `OpenSteamTool.dll` | Steam root |
 | `dwmapi.dll` | Steam root |
 | `xinput1_4.dll` | Steam root |
+| `socialclub64.dll` | Steam root (Rockstar workaround) |
+| `Activation64.dll` | Steam root (EA workaround) |
+| `uplay_r1_loader64.dll` | Steam root (Ubisoft workaround) |
 | `opensteamtool.toml` | Steam root |
 | `*.lua` | `<Steam>\config\lua` |
 | `appmanifest_*.acf` | `<Steam>\steamapps` |
 | `*.manifest` | `<Steam>\steamapps` |
 
-Steam is detected from
-`HKCU\Software\Valve\Steam\SteamPath`. If unavailable, TOST falls back to
-`C:\Program Files (x86)\Steam`.
+Steam is detected from `HKCU\Software\Valve\Steam\SteamPath`. If unavailable, TOST falls back to `C:\Program Files (x86)\Steam`.
 
 On Linux, Lua files route to `config/stplug-in`, depot manifests to
 `depotcache`, and app manifests to `steamapps`; supported Lua declarations are
@@ -208,17 +256,6 @@ converted into SLSsteam and Steam configuration without executing the Lua.
 - `Open Logs`
 - `Hide Floating Icon`
 - `Exit`
-
-## Settings and updates
-
-Installed Windows builds store settings and logs under:
-
-```text
-%LocalAppData%\TOST\data
-```
-
-Portable Windows builds store them beside `TOST.Desktop.exe`. Linux builds use
-the current user's local application-data directory.
 
 ### Game management
 

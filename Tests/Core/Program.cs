@@ -19,6 +19,7 @@ var tests = new (string Name, Action Run)[]
     ("Native and Flatpak launch hooks are guarded and removable", TestLaunchConfiguration),
     ("Imports route into a fake Steam installation and reject conflicts", TestImportRouting),
     ("Windows imports and game management use the OST Steam layout", TestWindowsImportRouting),
+    ("Third-party launcher workarounds route to Steam root", TestLauncherWorkaroundRouting),
     ("OST lock errors explain how to close Steam and retry", TestOpenSteamToolLockMessage),
     ("Configuration changes back up and restore exact bytes", TestConfigBackupRestore),
     ("Linux Steam discovery uses only the supplied fake home", TestSteamDiscovery),
@@ -307,6 +308,36 @@ static void TestWindowsImportRouting()
 
     var games = new ManagedGameService().FindManagedGames(installation);
     True(games.Count == 1 && games[0].ManifestPaths.Count == 1, "Windows Game Manager did not use the OST paths.");
+}
+
+static void TestLauncherWorkaroundRouting()
+{
+    using var fixture = new TemporaryDirectory();
+    var steamRoot = Path.Combine(fixture.Path, "Steam");
+    var gameFolder = Path.Combine(steamRoot, "steamapps", "common", "TestGame");
+    Directory.CreateDirectory(gameFolder);
+
+    var steam = new SteamInstallation(steamRoot, SteamInstallationKind.Windows, true, true);
+    var game = new ManagedGame("100", "Test Game", Path.Combine(steamRoot, "config", "lua", "100.lua"), [], [], "TestGame");
+    var service = new LauncherWorkaroundService();
+
+    var statusInit = service.GetStatus(game, steam);
+    True(!statusInit.HasRockstarWorkaround && !statusInit.HasEaWorkaround && !statusInit.HasUbisoftWorkaround, "Initial status reported existing workarounds.");
+
+    var applyRockstar = service.ApplyWorkaround(game, LauncherWorkaroundKind.Rockstar, steam);
+    True(applyRockstar.Success && File.Exists(Path.Combine(gameFolder, "socialclub64.dll")), "Rockstar workaround was not applied to game folder.");
+
+    var applyEa = service.ApplyWorkaround(game, LauncherWorkaroundKind.EA, steam);
+    True(applyEa.Success && File.Exists(Path.Combine(gameFolder, "Activation64.dll")), "EA workaround was not applied to game folder.");
+
+    var applyUbi = service.ApplyWorkaround(game, LauncherWorkaroundKind.Ubisoft, steam);
+    True(applyUbi.Success && File.Exists(Path.Combine(gameFolder, "uplay_r1_loader64.dll")), "Ubisoft workaround was not applied to game folder.");
+
+    var statusApplied = service.GetStatus(game, steam);
+    True(statusApplied.HasRockstarWorkaround && statusApplied.HasEaWorkaround && statusApplied.HasUbisoftWorkaround, "Workaround status failed to detect applied DLLs.");
+
+    var removeRockstar = service.RemoveWorkaround(game, LauncherWorkaroundKind.Rockstar, steam);
+    True(removeRockstar.Success && !File.Exists(Path.Combine(gameFolder, "socialclub64.dll")), "Rockstar workaround was not removed.");
 }
 
 static void TestOpenSteamToolLockMessage()
