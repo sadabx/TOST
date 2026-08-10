@@ -89,10 +89,11 @@ git push origin v2.0.1
 No personal access token is needed because the workflow uses GitHub's scoped
 token. The workflow can also be run manually for an existing tag from the
 Actions page. Linux assets include the Avalonia desktop app plus the optional
-`tost-cli` in a portable `.tar.gz`, an `x86_64.AppImage`, an Arch Linux
-`.pkg.tar.zst`, and `SHA256SUMS-linux.txt`.
+`tost-cli` in a portable `.tar.gz`, an `x86_64.AppImage`, a Debian/Ubuntu
+`.deb`, an Arch Linux `.pkg.tar.zst`, and `SHA256SUMS-linux.txt`.
 AppImage users can mark the file executable and run it directly; Arch users can
-install with `sudo pacman -U tost-<version>-1-x86_64.pkg.tar.zst`.
+install with `sudo pacman -U tost-<version>-1-x86_64.pkg.tar.zst`; Debian and
+Ubuntu users can install with `sudo apt install ./tost_<version>_amd64.deb`.
 
 ## Screenshots
 <details>
@@ -143,8 +144,8 @@ complete archive to a writable folder and run `TOST.Desktop.exe`. Keep every ext
 file together; the portable package is a directory-based application, not a
 single standalone executable.
 
-Linux releases provide a portable `.tar.gz`, AppImage, and Arch package. All use
-the same Avalonia interface as the Windows build.
+Linux releases provide a portable `.tar.gz`, AppImage, Debian/Ubuntu `.deb`, and
+Arch package. All use the same Avalonia interface as the Windows build.
 
 ## Usage
 

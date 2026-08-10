@@ -31,7 +31,7 @@ internal sealed class FloatingIconWindow : Window
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Topmost = alwaysOnTop;
         WindowStartupLocation = WindowStartupLocation.Manual;
-        Opened += (_, _) => PositionAtTopRight();
+        Opened += (_, _) => PositionAtScreenCenter();
 
         surface = new Border
         {
@@ -431,11 +431,16 @@ internal sealed class FloatingIconWindow : Window
         surface.BorderThickness = new Thickness(active ? 2 : 1);
     }
 
-    private void PositionAtTopRight()
+    private void PositionAtScreenCenter()
     {
         if (Screens.Primary?.WorkingArea is { } area)
         {
-            Position = new PixelPoint(area.Right - (int)Width - 18, area.Y + 18);
+            var scale = RenderScaling;
+            var width = (int)Math.Ceiling(Width * scale);
+            var height = (int)Math.Ceiling(Height * scale);
+            Position = new PixelPoint(
+                area.X + (area.Width - width) / 2,
+                area.Y + (area.Height - height) / 2);
         }
     }
 

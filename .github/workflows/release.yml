@@ -92,7 +92,7 @@ jobs:
           curl --fail --location --proto '=https' --tlsv1.2 "$url" -o artifacts/appimagetool
           echo "${digest#sha256:}  artifacts/appimagetool" | sha256sum --check --strict
           chmod +x artifacts/appimagetool
-      - name: Build portable, AppImage, and Arch packages
+      - name: Build portable, AppImage, Arch, and Debian packages
         env:
           APPIMAGETOOL: ${{ github.workspace }}/artifacts/appimagetool
         run: bash packaging/linux/build-packages.sh "${{ needs.metadata.outputs.version }}" artifacts/linux-desktop artifacts/linux-cli artifacts/linux-release

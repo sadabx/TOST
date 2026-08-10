@@ -58,4 +58,24 @@ license = GPL-3.0-only
 EOF
 tar --zstd --numeric-owner --owner=0 --group=0 -C "$pkgroot" -cf "$output_dir/tost-${version}-1-x86_64.pkg.tar.zst" .
 
-(cd "$output_dir" && sha256sum "TOST-${version}-linux-x64.tar.gz" "TOST-${version}-x86_64.AppImage" "tost-${version}-1-x86_64.pkg.tar.zst" > SHA256SUMS-linux.txt)
+debroot="$work_dir/debian-root"
+install -Dm755 "$desktop_dir/TOST.Desktop" "$debroot/usr/bin/tost"
+install -Dm755 "$cli_dir/tost" "$debroot/usr/bin/tost-cli"
+install -Dm644 "$repo_root/LICENSE" "$debroot/usr/share/doc/tost/copyright"
+install -Dm644 "$repo_root/packaging/linux/tost.desktop" "$debroot/usr/share/applications/tost.desktop"
+install -Dm644 "$repo_root/Assets/TOST.png" "$debroot/usr/share/icons/hicolor/512x512/apps/tost.png"
+deb_version="${version//-/\~}"
+install -Dm644 /dev/stdin "$debroot/DEBIAN/control" <<EOF
+Package: tost
+Version: $deb_version
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: TOST <noreply@github.com>
+Depends: libc6 (>= 2.35), libfontconfig1, libfreetype6, libglib2.0-0, libgtk-3-0, libice6, libsm6, libx11-6, libxcursor1, libxext6, libxinerama1, libxrandr2
+Description: TOST Steam integration manager
+ Manage TOST Steam integrations on Linux.
+EOF
+dpkg-deb --build --root-owner-group "$debroot" "$output_dir/tost_${deb_version}_amd64.deb"
+
+(cd "$output_dir" && sha256sum "TOST-${version}-linux-x64.tar.gz" "TOST-${version}-x86_64.AppImage" "tost-${version}-1-x86_64.pkg.tar.zst" "tost_${deb_version}_amd64.deb" > SHA256SUMS-linux.txt)
