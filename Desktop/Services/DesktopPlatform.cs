@@ -5,18 +5,77 @@ using Trionine.TOST.Core.Steam;
 
 namespace Trionine.TOST.Desktop.Services;
 
-internal sealed record DesktopImportSummary(int ImportedFiles, IReadOnlyList<string> Failures)
+internal sealed record DesktopImportSummary(
+    int ImportedFiles,
+    int LuaCount = 0,
+    int ManifestCount = 0,
+    int ToolCount = 0,
+    IReadOnlyList<string>? Failures = null)
 {
-    public bool Success => ImportedFiles > 0 && Failures.Count == 0;
+    public IReadOnlyList<string> Failures { get; init; } = Failures ?? [];
+    public bool Success => ImportedFiles > 0 && this.Failures.Count == 0;
+
+    public DesktopImportSummary(int importedFiles, IReadOnlyList<string> failures)
+        : this(importedFiles, 0, 0, 0, failures)
+    {
+    }
 
     public string ToMessage()
     {
-        var lines = new List<string>
+        if (ImportedFiles == 0)
         {
-            $"Imported {ImportedFiles} file{(ImportedFiles == 1 ? string.Empty : "s")}"
-        };
-        lines.AddRange(Failures.Select(failure => $"Skipped {failure}"));
-        lines.Add("Will take effect after Steam restarts");
+            if (Failures.Count == 0)
+            {
+                return "No supported files were imported\nCheck Logs for details";
+            }
+
+            var errLines = new List<string> { "No supported files were imported" };
+            errLines.AddRange(Failures.Take(2).Select(failure => $"Skipped: {failure}"));
+            errLines.Add("Check Logs for details");
+            return string.Join(Environment.NewLine, errLines);
+        }
+
+        var lines = new List<string>();
+        if (LuaCount > 0)
+        {
+            lines.Add($"Imported {LuaCount} Lua script{(LuaCount == 1 ? string.Empty : "s")}");
+        }
+
+        if (ManifestCount > 0)
+        {
+            lines.Add($"Imported {ManifestCount} manifest file{(ManifestCount == 1 ? string.Empty : "s")}");
+        }
+
+        if (ToolCount > 0)
+        {
+            lines.Add($"Imported {ToolCount} tool file{(ToolCount == 1 ? string.Empty : "s")}");
+        }
+
+        if (LuaCount == 0 && ManifestCount == 0 && ToolCount == 0)
+        {
+            lines.Add($"Imported {ImportedFiles} file{(ImportedFiles == 1 ? string.Empty : "s")}");
+        }
+
+        if (Failures.Count > 0)
+        {
+            lines.Add($"Skipped {Failures.Count} unsupported file{(Failures.Count == 1 ? string.Empty : "s")}");
+        }
+
+        if (ManifestCount > 0 || ToolCount > 0)
+        {
+            lines.Add("Will take effect after Steam restarts");
+        }
+        else if (LuaCount > 0)
+        {
+            lines.Add(OperatingSystem.IsWindows()
+                ? "Loaded into OpenSteamTool (Hot-reloaded)"
+                : "Configuration updated");
+        }
+        else
+        {
+            lines.Add("Will take effect after Steam restarts");
+        }
+
         return string.Join(Environment.NewLine, lines);
     }
 }
@@ -112,7 +171,11 @@ internal static class DesktopPlatform
             failures.Add($"configuration: {ex.Message}");
         }
 
-        return new DesktopImportSummary(result.ImportedCount, failures);
+        var luaCount = candidates.Count(f => f.EndsWith(".lua", StringComparison.OrdinalIgnoreCase));
+        var manifestCount = candidates.Count(f => f.EndsWith(".manifest", StringComparison.OrdinalIgnoreCase) ||
+                                                 f.EndsWith(".acf", StringComparison.OrdinalIgnoreCase) && Path.GetFileName(f).StartsWith("appmanifest_", StringComparison.OrdinalIgnoreCase));
+        var toolCount = result.ImportedCount - luaCount - manifestCount;
+        return new DesktopImportSummary(result.ImportedCount, luaCount, manifestCount, toolCount, failures);
     }
 
     private static IEnumerable<string> ExpandFiles(IEnumerable<string> paths, ICollection<string> failures)

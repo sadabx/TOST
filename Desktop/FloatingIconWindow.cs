@@ -386,12 +386,6 @@ internal sealed class FloatingIconWindow : Window
             return;
         }
 
-        if (DesktopPlatform.UsesOpenSteamTool && SteamProcessGuard.IsSteamRunning())
-        {
-            await TostDialog.ShowAsync(this, "Close Steam First", SteamProcessGuard.CloseSteamInstructions);
-            return;
-        }
-
         DesktopImportSummary summary;
         if (DesktopPlatform.UsesOpenSteamTool)
         {
@@ -402,8 +396,18 @@ internal sealed class FloatingIconWindow : Window
                 paths,
                 settings.OverwriteExistingFiles,
                 settings.BackupFilesBeforeOverwrite);
+
+            var successfulFiles = result.Files.Where(f => f.Success).Select(f => f.Name).ToList();
+            var luaCount = successfulFiles.Count(f => f.EndsWith(".lua", StringComparison.OrdinalIgnoreCase));
+            var manifestCount = successfulFiles.Count(f => f.EndsWith(".manifest", StringComparison.OrdinalIgnoreCase) ||
+                                                          f.EndsWith(".acf", StringComparison.OrdinalIgnoreCase) && f.StartsWith("appmanifest_", StringComparison.OrdinalIgnoreCase));
+            var toolCount = result.ImportedCount - luaCount - manifestCount;
+
             summary = new DesktopImportSummary(
                 result.ImportedCount,
+                luaCount,
+                manifestCount,
+                toolCount,
                 result.Files.Where(file => !file.Success).Select(file => $"{file.Name}: {file.Error}").ToArray());
         }
         else
