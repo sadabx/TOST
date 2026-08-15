@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Trionine.TOST.Core.Integrations.OnlineFix;
 using Trionine.TOST.Core.Integrations.OpenSteamTool;
 using Trionine.TOST.Core.Integrations.SlsSteam;
 using Trionine.TOST.Core.Steam;
@@ -141,6 +142,55 @@ internal sealed class FloatingIconWindow : Window
         }
     }
 
+    private async Task InstallOrRepairOnlineFixAsync()
+    {
+        var steam = DesktopPlatform.PreferredInstallation();
+        if (steam is null)
+        {
+            await TostDialog.ShowAsync(this, "Install / Update OnlineFix", "Steam installation was not found.");
+            return;
+        }
+
+        if (steam.Kind != SteamInstallationKind.Windows)
+        {
+            await TostDialog.ShowAsync(this, "Install / Update OnlineFix", "OnlineFix is currently only available for Windows Steam.");
+            return;
+        }
+
+        if (SteamProcessGuard.IsSteamRunning())
+        {
+            await TostDialog.ShowAsync(this, "Close Steam First", SteamProcessGuard.CloseSteamInstructions);
+            return;
+        }
+
+        if (!await TostDialog.ConfirmAsync(
+                this,
+                "Install / Update OnlineFix",
+                "Download and install the latest OnlineFix release into Steam?",
+                "Install"))
+        {
+            return;
+        }
+
+        try
+        {
+            var preferences = DesktopPaths.PreferencesStore.Load();
+            using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+            var result = await new OnlineFixInstallerService(client).InstallLatestAsync(
+                steam,
+                preferences.OverwriteExistingFiles,
+                preferences.BackupFilesBeforeOverwrite);
+
+            DesktopLog.Info(result.ToMessage());
+            await TostDialog.ShowAsync(this, "Install / Update OnlineFix", result.ToMessage());
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
+        {
+            DesktopLog.Error($"OnlineFix installation failed: {ex}");
+            await TostDialog.ShowAsync(this, "Install / Update OnlineFix", $"Installation failed: {ex.Message}");
+        }
+    }
+
     internal async Task CheckForUpdatesAsync(bool silentWhenCurrent)
     {
         try
@@ -211,6 +261,11 @@ internal sealed class FloatingIconWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(Item($"Install / Repair {DesktopPlatform.IntegrationName}", "\u21E9", async () => await InstallOrRepairIntegrationAsync()));
         menu.Items.Add(Item($"View {DesktopPlatform.IntegrationName} Releases", "\u25CE", () => OpenWebsite(DesktopPlatform.IntegrationReleasesUrl)));
+        if (DesktopPlatform.UsesOpenSteamTool)
+        {
+            menu.Items.Add(Item("Install / Update OnlineFix", "\u21E9", async () => await InstallOrRepairOnlineFixAsync()));
+            menu.Items.Add(Item("View OnlineFix Releases", "\u25CE", () => OpenWebsite("https://github.com/Ran-Mewo/OnlineFix/releases")));
+        }
         menu.Items.Add(Item("Open ManifestHub", "\u25CE", () => OpenWebsite(ManifestHubUrl)));
         menu.Items.Add(CreateFolderMenu());
         menu.Items.Add(new Separator());

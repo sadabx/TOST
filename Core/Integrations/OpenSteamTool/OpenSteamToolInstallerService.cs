@@ -338,6 +338,7 @@ public sealed class OpenSteamToolInstallerService
     {
         if (fileName.Equals("opensteamtool.toml", StringComparison.OrdinalIgnoreCase) ||
             fileName.Equals("OpenSteamTool.dll", StringComparison.OrdinalIgnoreCase) ||
+            fileName.Equals("OnlineFix.dll", StringComparison.OrdinalIgnoreCase) ||
             fileName.Equals("dwmapi.dll", StringComparison.OrdinalIgnoreCase) ||
             fileName.Equals("xinput1_4.dll", StringComparison.OrdinalIgnoreCase))
         {

@@ -1,6 +1,7 @@
 using Trionine.TOST.Core.Imports;
 using Trionine.TOST.Core.Integrations.SlsSteam;
 using Trionine.TOST.Core.Integrations.OpenSteamTool;
+using Trionine.TOST.Core.Integrations.OnlineFix;
 using Trionine.TOST.Core.Steam;
 using Trionine.TOST.Core.GameManagement;
 using Trionine.TOST.Core.Configuration;
@@ -20,6 +21,7 @@ var tests = new (string Name, Action Run)[]
     ("Imports route into a fake Steam installation and reject conflicts", TestImportRouting),
     ("Windows imports and game management use the OST Steam layout", TestWindowsImportRouting),
     ("OST lock errors explain how to close Steam and retry", TestOpenSteamToolLockMessage),
+    ("OnlineFix routes to Steam root and supports status detection and removal", TestOnlineFixIntegration),
     ("Configuration changes back up and restore exact bytes", TestConfigBackupRestore),
     ("Linux Steam discovery uses only the supplied fake home", TestSteamDiscovery),
     ("SLSsteam libraries archive and restore in a fake installation", TestSlsRecovery),
@@ -322,6 +324,45 @@ static void TestOpenSteamToolLockMessage()
          message.Contains("Steam > Exit", StringComparison.Ordinal) &&
          message.Contains("restart TOST as administrator", StringComparison.Ordinal),
         "OST lock errors did not provide actionable recovery instructions.");
+}
+
+static void TestOnlineFixIntegration()
+{
+    using var fixture = new TemporaryDirectory();
+    var steamRoot = Path.Combine(fixture.Path, "Steam");
+    Directory.CreateDirectory(steamRoot);
+    var sourceFolder = Path.Combine(fixture.Path, "source");
+    Directory.CreateDirectory(sourceFolder);
+
+    var onlineFixFile = Path.Combine(sourceFolder, "OnlineFix.dll");
+    File.WriteAllText(onlineFixFile, "dummy-onlinefix-dll");
+
+    var steam = new SteamInstallation(steamRoot, SteamInstallationKind.Windows, true, true);
+    var service = new OnlineFixInstallerService(new HttpClient(new StaticHttpHandler(new byte[] { 1, 2, 3 })));
+
+    True(!service.IsInstalled(steam), "OnlineFix should not be reported as installed before placement.");
+
+    var ostInstaller = new OpenSteamToolInstallerService(new HttpClient());
+    var importResult = ostInstaller.Import(steam, [onlineFixFile], overwrite: true, backupBeforeOverwrite: true);
+    True(importResult.Success, "Importing OnlineFix.dll via OST installer failed.");
+    True(File.Exists(Path.Combine(steamRoot, "OnlineFix.dll")), "OnlineFix.dll was not routed to Steam root.");
+    True(service.IsInstalled(steam), "OnlineFix was not recognized as installed after routing.");
+
+    var removed = service.Remove(steam);
+    True(removed, "OnlineFix removal should return true.");
+    True(!File.Exists(Path.Combine(steamRoot, "OnlineFix.dll")), "OnlineFix.dll was not removed.");
+    True(!service.IsInstalled(steam), "OnlineFix should not be installed after removal.");
+
+    var installTask = service.InstallLatestAsync(steam);
+    installTask.Wait();
+    var installResult = installTask.Result;
+    True(installResult.Success, "InstallLatestAsync failed: " + installResult.Error);
+    True(File.Exists(Path.Combine(steamRoot, "OnlineFix.dll")), "OnlineFix.dll was not installed by service.");
+    var tomlPath = Path.Combine(steamRoot, "opensteamtool.toml");
+    True(File.Exists(tomlPath), "opensteamtool.toml was not generated.");
+    var tomlText = File.ReadAllText(tomlPath);
+    True(tomlText.Contains("[[inject]]", StringComparison.Ordinal) && tomlText.Contains("OnlineFix.dll", StringComparison.Ordinal),
+        "opensteamtool.toml missing inject block.");
 }
 
 static void TestPreferences()
