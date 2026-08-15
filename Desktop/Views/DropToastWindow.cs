@@ -21,30 +21,45 @@ internal sealed class DropToastWindow : Window
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Content = new Border
         {
-            Padding = new Thickness(18, 14),
-            CornerRadius = new CornerRadius(8),
-            Background = Brush.Parse("#27282B"),
-            BorderBrush = Brush.Parse("#34373A"),
+            Padding = new Thickness(22, 16),
+            CornerRadius = new CornerRadius(10),
+            Background = Brush.Parse("#1E2023"),
+            BorderBrush = Brush.Parse("#32353A"),
             BorderThickness = new Thickness(1),
             Child = new StackPanel
             {
-                Spacing = 8,
+                Spacing = 10,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Children =
                 {
-                    new TextBlock
+                    new Border
                     {
-                        Text = summary.Failures.Count == 0 ? "\u2713" : "!",
-                        FontSize = 20,
+                        Width = 24,
+                        Height = 24,
+                        CornerRadius = new CornerRadius(12),
+                        BorderBrush = Brush.Parse(summary.Failures.Count == 0 ? "#C8D1CC" : "#E0A33E"),
+                        BorderThickness = new Thickness(1.8),
                         HorizontalAlignment = HorizontalAlignment.Center,
-                        Foreground = Brush.Parse(summary.Failures.Count == 0 ? "#D8E2DC" : "#E0A33E")
+                        Child = new TextBlock
+                        {
+                            Text = summary.Failures.Count == 0 ? "✓" : "!",
+                            FontSize = 13,
+                            FontWeight = FontWeight.SemiBold,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Foreground = Brush.Parse(summary.Failures.Count == 0 ? "#C8D1CC" : "#E0A33E"),
+                            Margin = new Thickness(0, -1, 0, 0)
+                        }
                     },
                     new TextBlock
                     {
                         Text = summary.ToMessage(),
                         TextAlignment = TextAlignment.Center,
                         TextWrapping = TextWrapping.Wrap,
-                        MaxWidth = 285
+                        MaxWidth = 285,
+                        FontSize = 13,
+                        LineHeight = 19,
+                        Foreground = Brush.Parse("#D6DFDA")
                     }
                 }
             }
