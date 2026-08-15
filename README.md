@@ -105,7 +105,7 @@ Please ensure you are running the latest release of TOST before reporting issues
 ## Credits
 
 ### Contributors
-- Developed and maintained by [sadabx](https://github.com/sadabx) under [TRIONINE](https://trionine.com/).
+- Developed and maintained by [trionine](https://github.com/trionine).
 
 ### Upstream Projects
 - **OpenSteamTool**: TOST uses the supported file layout and logo assets of [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool), which remains owned and maintained by its own contributors.
