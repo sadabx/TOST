@@ -40,7 +40,7 @@
           <NativeMenu>
             <NativeMenuItem Header="Show Floating Icon" Click="ShowFloatingIcon" />
             <NativeMenuItemSeparator />
-            <NativeMenuItem Header="Install / Repair OST / SLSsteam" Click="InstallIntegration" />
+            <NativeMenuItem Header="Apply OST / SLSsteam" Click="InstallIntegration" />
             <NativeMenuItem Header="Check for Updates" Click="CheckForUpdates" />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Exit" Click="ExitApplication" />

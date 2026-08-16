@@ -78,6 +78,7 @@ internal sealed class FloatingIconWindow : Window
             return;
         }
 
+        var actionTitle = DesktopPlatform.UsesOpenSteamTool ? "Apply OST" : $"Apply {DesktopPlatform.IntegrationName}";
         if (DesktopPlatform.UsesOpenSteamTool && SteamProcessGuard.IsSteamRunning())
         {
             await TostDialog.ShowAsync(this, "Close Steam First", SteamProcessGuard.CloseSteamInstructions);
@@ -86,9 +87,9 @@ internal sealed class FloatingIconWindow : Window
 
         if (!await TostDialog.ConfirmAsync(
                 this,
-                $"Install / Repair {DesktopPlatform.IntegrationName}",
-                $"Download and install the latest official {DesktopPlatform.IntegrationName} release?",
-                "Install"))
+                actionTitle,
+                $"Download and apply the latest official {DesktopPlatform.IntegrationName} release?",
+                "Apply"))
         {
             return;
         }
@@ -104,7 +105,7 @@ internal sealed class FloatingIconWindow : Window
                     preferences.OverwriteExistingFiles,
                     preferences.BackupFilesBeforeOverwrite);
                 DesktopLog.Info(result.ToMessage());
-                await TostDialog.ShowAsync(this, "Install / Repair OpenSteamTool", result.ToMessage());
+                await TostDialog.ShowAsync(this, actionTitle, result.ToMessage());
                 return;
             }
 
@@ -115,7 +116,7 @@ internal sealed class FloatingIconWindow : Window
             var preview = installer.Preview(release, paths, allowRepair: true);
             if (!preview.CanInstall)
             {
-                await TostDialog.ShowAsync(this, "Install / Repair SLSsteam", preview.BlockReason ?? "SLSsteam cannot be installed safely.");
+                await TostDialog.ShowAsync(this, actionTitle, preview.BlockReason ?? "SLSsteam cannot be installed safely.");
                 return;
             }
 
@@ -132,12 +133,12 @@ internal sealed class FloatingIconWindow : Window
             }
 
             DesktopLog.Info($"Installed SLSsteam {installed.Tag} successfully and configured Steam launch injection.");
-            await TostDialog.ShowAsync(this, "Install / Repair SLSsteam", $"Installed {installed.Tag} successfully. Restart Steam to apply it.");
+            await TostDialog.ShowAsync(this, actionTitle, $"Installed {installed.Tag} successfully. Restart Steam to apply it.");
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
         {
             DesktopLog.Error($"{DesktopPlatform.IntegrationName} installation failed: {ex}");
-            await TostDialog.ShowAsync(this, $"Install / Repair {DesktopPlatform.IntegrationName}", $"Installation failed: {ex.Message}");
+            await TostDialog.ShowAsync(this, actionTitle, $"Installation failed: {ex.Message}");
         }
     }
 
@@ -209,8 +210,8 @@ internal sealed class FloatingIconWindow : Window
         menu.Items.Add(Item("Launch Steam", "\u25B7", LaunchSteam));
         menu.Items.Add(Item("Restart Steam", "\u21BB", async () => await RestartSteamAsync()));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Item($"Install / Repair {DesktopPlatform.IntegrationName}", "\u21E9", async () => await InstallOrRepairIntegrationAsync()));
-        menu.Items.Add(Item($"View {DesktopPlatform.IntegrationName} Releases", "\u25CE", () => OpenWebsite(DesktopPlatform.IntegrationReleasesUrl)));
+        menu.Items.Add(Item(DesktopPlatform.UsesOpenSteamTool ? "Apply OST" : "Apply SLSsteam", "\u21E9", async () => await InstallOrRepairIntegrationAsync()));
+        menu.Items.Add(CreateReleasesMenu());
         menu.Items.Add(Item("Open ManifestHub", "\u25CE", () => OpenWebsite(ManifestHubUrl)));
         menu.Items.Add(CreateFolderMenu());
         menu.Items.Add(new Separator());
@@ -222,6 +223,14 @@ internal sealed class FloatingIconWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Exit", "\u25EF", () => App()?.Exit()));
         return menu;
+    }
+
+    private MenuItem CreateReleasesMenu()
+    {
+        var releases = Item("Releases", "\u25CE");
+        releases.Items.Add(Item(DesktopPlatform.UsesOpenSteamTool ? "OpenSteamTool" : "SLSsteam", "\u25CE", () => OpenWebsite(DesktopPlatform.IntegrationReleasesUrl)));
+        releases.Items.Add(Item("TOST", "\u25CE", () => OpenWebsite("https://github.com/sadabx/TOST/releases")));
+        return releases;
     }
 
     private MenuItem CreateFolderMenu()
