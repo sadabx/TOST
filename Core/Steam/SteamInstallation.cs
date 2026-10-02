@@ -20,9 +20,7 @@ public sealed record SteamInstallation(
     public string ManagedScriptsPath => Kind == SteamInstallationKind.Windows
         ? Path.Combine(ConfigPath, "lua")
         : SlsPluginPath;
-    public string ManagedManifestsPath => Kind == SteamInstallationKind.Windows
-        ? SteamAppsPath
-        : DepotCachePath;
+    public string ManagedManifestsPath => DepotCachePath;
     public string CommonAppsPath => Path.Combine(SteamAppsPath, "common");
     public string UserDataPath => Path.Combine(RootPath, "userdata");
 }

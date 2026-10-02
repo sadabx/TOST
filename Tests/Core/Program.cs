@@ -317,7 +317,15 @@ static void TestWindowsImportRouting()
     var imported = new SteamImportService().ApplyNewFiles(installation, [lua, manifest]);
     True(imported.Success, "Windows OST import did not complete.");
     True(File.Exists(Path.Combine(steamRoot, "config", "lua", "10.lua")), "Windows Lua did not route to config/lua.");
-    True(File.Exists(Path.Combine(steamRoot, "steamapps", "20_100.manifest")), "Windows manifest did not route to steamapps.");
+    True(File.Exists(Path.Combine(steamRoot, "depotcache", "20_100.manifest")), "Windows manifest did not route to depotcache.");
+
+    using var client = new HttpClient();
+    var ostInstaller = new OpenSteamToolInstallerService(client);
+    var ostManifest = Path.Combine(source, "30_200.manifest");
+    File.WriteAllText(ostManifest, "ost_manifest");
+    var ostImported = ostInstaller.Import(installation, [ostManifest], overwrite: true, backupBeforeOverwrite: false);
+    True(ostImported.Success, "OST direct import did not complete.");
+    True(File.Exists(Path.Combine(steamRoot, "depotcache", "30_200.manifest")), "OST direct import did not route manifest to depotcache.");
 
     var games = new ManagedGameService().FindManagedGames(installation);
     True(games.Count == 1 && games[0].ManifestPaths.Count == 1, "Windows Game Manager did not use the OST paths.");

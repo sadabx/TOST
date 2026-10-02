@@ -130,7 +130,7 @@ public sealed class ManagedGameService
         {
             if (!ValidEntry(file)) return new(false, $"The recovery entry for {file.FileName} is invalid.");
             var source = Path.GetFullPath(Path.Combine(archive.ArchiveDirectory, file.ArchiveRelativePath));
-            var root = file.Kind == "Lua" ? installation.SlsPluginPath : installation.DepotCachePath;
+            var root = file.Kind == "Lua" ? installation.ManagedScriptsPath : installation.ManagedManifestsPath;
             var destination = Path.GetFullPath(Path.Combine(root, file.FileName));
             if (!IsInside(source, archive.ArchiveDirectory) || !IsInside(destination, root) || !File.Exists(source))
                 return new(false, $"The recovery file {file.FileName} is missing or invalid.");

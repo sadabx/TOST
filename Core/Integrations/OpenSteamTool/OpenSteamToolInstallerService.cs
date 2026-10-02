@@ -350,8 +350,12 @@ public sealed class OpenSteamToolInstallerService
             return steam.ManagedScriptsPath;
         }
 
-        if (extension.Equals(".manifest", StringComparison.OrdinalIgnoreCase) ||
-            extension.Equals(".acf", StringComparison.OrdinalIgnoreCase) && fileName.StartsWith("appmanifest_", StringComparison.OrdinalIgnoreCase))
+        if (extension.Equals(".manifest", StringComparison.OrdinalIgnoreCase))
+        {
+            return steam.DepotCachePath;
+        }
+
+        if (extension.Equals(".acf", StringComparison.OrdinalIgnoreCase) && fileName.StartsWith("appmanifest_", StringComparison.OrdinalIgnoreCase))
         {
             return steam.SteamAppsPath;
         }
