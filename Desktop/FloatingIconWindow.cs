@@ -431,6 +431,17 @@ internal sealed class FloatingIconWindow : Window
 
         DesktopLog.Info(summary.ToMessage());
         ShowDropToast(summary);
+
+        if (DesktopPlatform.UsesOpenSteamTool &&
+            steam is not null &&
+            !File.Exists(Path.Combine(steam.RootPath, "dwmapi.dll")) &&
+            !File.Exists(Path.Combine(steam.RootPath, "xinput1_4.dll")))
+        {
+            await TostDialog.ShowAsync(
+                this,
+                "Apply OST Required",
+                "OpenSteamTool hook (dwmapi.dll) was not found in Steam.\n\nClick 'Apply OST' in the menu so Steam can load your injected games.");
+        }
     }
 
     private void ShowDropToast(DesktopImportSummary summary)

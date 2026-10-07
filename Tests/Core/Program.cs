@@ -326,6 +326,8 @@ static void TestWindowsImportRouting()
     var ostImported = ostInstaller.Import(installation, [ostManifest], overwrite: true, backupBeforeOverwrite: false);
     True(ostImported.Success, "OST direct import did not complete.");
     True(File.Exists(Path.Combine(steamRoot, "depotcache", "30_200.manifest")), "OST direct import did not route manifest to depotcache.");
+    True(File.Exists(Path.Combine(steamRoot, "opensteamtool.toml")), "opensteamtool.toml was not auto-created.");
+    True(File.ReadAllText(Path.Combine(steamRoot, "opensteamtool.toml")).Contains("url = \"steamrun\""), "opensteamtool.toml does not configure steamrun.");
 
     var games = new ManagedGameService().FindManagedGames(installation);
     True(games.Count == 1 && games[0].ManifestPaths.Count == 1, "Windows Game Manager did not use the OST paths.");

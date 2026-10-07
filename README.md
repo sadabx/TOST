@@ -58,7 +58,7 @@ Head over to the [TOST Releases Page](https://github.com/sadabx/TOST/releases) a
 ### Basic Usage
 1. Launch TOST. A floating "T" icon will appear on your screen.
 2. Right-click the icon to open the main menu.
-3. Select **Install / Repair OpenSteamTool** (Windows) or **Install / Repair SLSsteam** (Linux) to initialize the backend engine.
+3. Select **Apply OST** (Windows) or **Apply SLSsteam** (Linux) to initialize the backend engine.
 4. Drag and drop game packages (ZIPs, manifests, lua files) directly onto the floating icon to install them into Steam.
 5. Open the **Manage Games** menu to review installed modifications or to safely remove them.
 

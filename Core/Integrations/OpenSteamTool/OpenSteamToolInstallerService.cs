@@ -36,7 +36,7 @@ public sealed record OpenSteamToolInstallResult(string? Tag, IReadOnlyList<OpenS
         if (Files.Any(file => !file.Success && IsLockedOrDenied(file.Error)))
         {
             lines.Add(string.Empty);
-            lines.Add("Close Steam completely using Steam > Exit, wait for its tray icon to disappear, then run Install / Repair again.");
+            lines.Add("Close Steam completely using Steam > Exit, wait for its tray icon to disappear, then click Apply OST again.");
             lines.Add("If Steam is already closed, restart TOST as administrator and verify that your Steam folder is writable.");
         }
 
@@ -82,6 +82,7 @@ public sealed class OpenSteamToolInstallerService
         {
             await DownloadAsync(release.DownloadUri, temporaryArchive, cancellationToken);
             var files = InstallArchive(temporaryArchive, steam, overwrite, backupBeforeOverwrite);
+            EnsureTomlConfigured(steam.RootPath);
             return new OpenSteamToolInstallResult(release.Tag, files);
         }
         finally
@@ -99,6 +100,7 @@ public sealed class OpenSteamToolInstallerService
         bool backupBeforeOverwrite)
     {
         EnsureWindowsSteam(steam);
+        EnsureTomlConfigured(steam.RootPath);
         var results = new List<OpenSteamToolFileResult>();
         foreach (var input in inputPaths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
@@ -373,6 +375,40 @@ public sealed class OpenSteamToolInstallerService
         if (!Directory.Exists(steam.RootPath))
         {
             throw new DirectoryNotFoundException($"Steam folder not found: {steam.RootPath}");
+        }
+    }
+
+    public static void EnsureTomlConfigured(string steamRoot)
+    {
+        var tomlPath = Path.Combine(steamRoot, "opensteamtool.toml");
+        try
+        {
+            if (!File.Exists(tomlPath))
+            {
+                File.WriteAllText(tomlPath, "[manifest]\nurl = \"steamrun\"\n", new System.Text.UTF8Encoding(false));
+                return;
+            }
+
+            var text = File.ReadAllText(tomlPath);
+            if (Regex.IsMatch(text, @"(?m)^\s*url\s*=\s*[""']opensteamtool[""']", RegexOptions.IgnoreCase))
+            {
+                var updated = Regex.Replace(text, @"(?m)^\s*url\s*=\s*[""']opensteamtool[""']", "url = \"steamrun\"", RegexOptions.IgnoreCase);
+                File.WriteAllText(tomlPath, updated, new System.Text.UTF8Encoding(false));
+            }
+            else if (!Regex.IsMatch(text, @"(?m)^\s*\[manifest\]", RegexOptions.IgnoreCase))
+            {
+                var updated = text.TrimEnd() + "\n\n[manifest]\nurl = \"steamrun\"\n";
+                File.WriteAllText(tomlPath, updated, new System.Text.UTF8Encoding(false));
+            }
+            else if (!Regex.IsMatch(text, @"(?m)^\s*url\s*=", RegexOptions.IgnoreCase))
+            {
+                var updated = Regex.Replace(text, @"(?m)(^\s*\[manifest\]\s*$)", "$1\nurl = \"steamrun\"", RegexOptions.IgnoreCase);
+                File.WriteAllText(tomlPath, updated, new System.Text.UTF8Encoding(false));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort - do not fail if Steam or Windows locks the file
         }
     }
 }
