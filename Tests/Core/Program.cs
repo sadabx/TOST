@@ -327,7 +327,18 @@ static void TestWindowsImportRouting()
     True(ostImported.Success, "OST direct import did not complete.");
     True(File.Exists(Path.Combine(steamRoot, "depotcache", "30_200.manifest")), "OST direct import did not route manifest to depotcache.");
     True(File.Exists(Path.Combine(steamRoot, "opensteamtool.toml")), "opensteamtool.toml was not auto-created.");
-    True(File.ReadAllText(Path.Combine(steamRoot, "opensteamtool.toml")).Contains("url = \"steamrun\""), "opensteamtool.toml does not configure steamrun.");
+    var tomlContent = File.ReadAllText(Path.Combine(steamRoot, "opensteamtool.toml"));
+    True(tomlContent.Contains("url = \"steamrun\""), "opensteamtool.toml does not configure steamrun.");
+    True(tomlContent.Contains("madoiscool/steam-monitor"), "opensteamtool.toml does not configure community pattern tracker.");
+
+    // Verify upgrade of dead OpenSteam001 URL
+    var deadToml = "[manifest]\nurl = \"opensteamtool\"\n\n[remote]\nurl_template = \"https://cdn.jsdelivr.net/gh/OpenSteam001/steam-monitor@{channel}/{component}/{sha256}.toml\"\n";
+    File.WriteAllText(Path.Combine(steamRoot, "opensteamtool.toml"), deadToml);
+    OpenSteamToolInstallerService.EnsureTomlConfigured(steamRoot);
+    var upgradedToml = File.ReadAllText(Path.Combine(steamRoot, "opensteamtool.toml"));
+    True(upgradedToml.Contains("url = \"steamrun\""), "opensteamtool.toml did not upgrade opensteamtool to steamrun.");
+    True(!upgradedToml.Contains("OpenSteam001"), "opensteamtool.toml still contains dead OpenSteam001 tracker.");
+    True(upgradedToml.Contains("madoiscool/steam-monitor"), "opensteamtool.toml did not upgrade to madoiscool tracker.");
 
     var games = new ManagedGameService().FindManagedGames(installation);
     True(games.Count == 1 && games[0].ManifestPaths.Count == 1, "Windows Game Manager did not use the OST paths.");

@@ -378,6 +378,9 @@ public sealed class OpenSteamToolInstallerService
         }
     }
 
+    public const string DefaultRemoteUrlTemplate =
+        "https://cdn.jsdelivr.net/gh/madoiscool/steam-monitor@{channel}/{component}/{sha256}.toml";
+
     public static void EnsureTomlConfigured(string steamRoot)
     {
         var tomlPath = Path.Combine(steamRoot, "opensteamtool.toml");
@@ -385,25 +388,52 @@ public sealed class OpenSteamToolInstallerService
         {
             if (!File.Exists(tomlPath))
             {
-                File.WriteAllText(tomlPath, "[manifest]\nurl = \"steamrun\"\n", new System.Text.UTF8Encoding(false));
+                File.WriteAllText(tomlPath,
+                    $"[manifest]\nurl = \"steamrun\"\n\n[remote]\nurl_template = \"{DefaultRemoteUrlTemplate}\"\n",
+                    new System.Text.UTF8Encoding(false));
                 return;
             }
 
             var text = File.ReadAllText(tomlPath);
+            var changed = false;
+
+            // Ensure [manifest] uses steamrun endpoint instead of dead upstream
             if (Regex.IsMatch(text, @"(?m)^\s*url\s*=\s*[""']opensteamtool[""']", RegexOptions.IgnoreCase))
             {
-                var updated = Regex.Replace(text, @"(?m)^\s*url\s*=\s*[""']opensteamtool[""']", "url = \"steamrun\"", RegexOptions.IgnoreCase);
-                File.WriteAllText(tomlPath, updated, new System.Text.UTF8Encoding(false));
+                text = Regex.Replace(text, @"(?m)^\s*url\s*=\s*[""']opensteamtool[""']", "url = \"steamrun\"", RegexOptions.IgnoreCase);
+                changed = true;
             }
             else if (!Regex.IsMatch(text, @"(?m)^\s*\[manifest\]", RegexOptions.IgnoreCase))
             {
-                var updated = text.TrimEnd() + "\n\n[manifest]\nurl = \"steamrun\"\n";
-                File.WriteAllText(tomlPath, updated, new System.Text.UTF8Encoding(false));
+                text = text.TrimEnd() + "\n\n[manifest]\nurl = \"steamrun\"\n";
+                changed = true;
             }
             else if (!Regex.IsMatch(text, @"(?m)^\s*url\s*=", RegexOptions.IgnoreCase))
             {
-                var updated = Regex.Replace(text, @"(?m)(^\s*\[manifest\]\s*$)", "$1\nurl = \"steamrun\"", RegexOptions.IgnoreCase);
-                File.WriteAllText(tomlPath, updated, new System.Text.UTF8Encoding(false));
+                text = Regex.Replace(text, @"(?m)(^\s*\[manifest\]\s*$)", "$1\nurl = \"steamrun\"", RegexOptions.IgnoreCase);
+                changed = true;
+            }
+
+            // Ensure [remote] uses active community pattern tracker instead of dead OpenSteam001
+            if (Regex.IsMatch(text, @"(?m)^\s*url_template\s*=\s*[""'].*OpenSteam001.*[""']", RegexOptions.IgnoreCase))
+            {
+                text = Regex.Replace(text, @"(?m)^\s*url_template\s*=\s*[""'].*OpenSteam001.*[""']", $"url_template = \"{DefaultRemoteUrlTemplate}\"", RegexOptions.IgnoreCase);
+                changed = true;
+            }
+            else if (!Regex.IsMatch(text, @"(?m)^\s*\[remote\]", RegexOptions.IgnoreCase))
+            {
+                text = text.TrimEnd() + $"\n\n[remote]\nurl_template = \"{DefaultRemoteUrlTemplate}\"\n";
+                changed = true;
+            }
+            else if (!Regex.IsMatch(text, @"(?m)^\s*url_template\s*=", RegexOptions.IgnoreCase))
+            {
+                text = Regex.Replace(text, @"(?m)(^\s*\[remote\]\s*$)", $"$1\nurl_template = \"{DefaultRemoteUrlTemplate}\"", RegexOptions.IgnoreCase);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                File.WriteAllText(tomlPath, text, new System.Text.UTF8Encoding(false));
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
