@@ -86,7 +86,7 @@ internal static class DesktopPlatform
     public static bool UsesOpenSteamTool => OperatingSystem.IsWindows();
     public static string IntegrationName => UsesOpenSteamTool ? "OpenSteamTool" : "SLSsteam";
     public static string IntegrationReleasesUrl => UsesOpenSteamTool
-        ? "https://github.com/OpenSteam001/OpenSteamTool/releases"
+        ? "https://github.com/madoiscool/BetterSteamTools/releases"
         : "https://github.com/AceSLS/SLSsteam/releases";
 
     public static IReadOnlyList<SteamInstallation> FindInstallations()

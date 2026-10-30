@@ -23,7 +23,7 @@
 
 TOST is a modern, cross-platform floating desktop companion for Steam. It simplifies the installation and management of game manifests, Lua plugins, and Steam backend tools. 
 
-On **Windows**, TOST seamlessly manages [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool). 
+On **Windows**, TOST seamlessly manages [OpenSteamTool](https://github.com/madoiscool/BetterSteamTools) (powered by the actively maintained [BetterSteamTools](https://github.com/madoiscool/BetterSteamTools) upstream). 
 On **Linux**, it manages [SLSsteam](https://github.com/AceSLS/SLSsteam). 
 
 Instead of manually digging through Steam folders to paste `.manifest` and `.lua` files, TOST lets you drag and drop them right onto its floating icon. It handles all the file routing, backups, and configurations for you automatically.
@@ -115,7 +115,7 @@ Please ensure you are running the latest release of TOST before reporting issues
 - Developed and maintained by [trionine](https://github.com/trionine).
 
 ### Upstream Projects
-- **OpenSteamTool**: TOST uses the supported file layout and logo assets of [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool), which remains owned and maintained by its own contributors.
+- **OpenSteamTool & BetterSteamTools**: TOST manages OpenSteamTool on Windows, utilizing the actively maintained [BetterSteamTools](https://github.com/madoiscool/BetterSteamTools) fork by [madoiscool](https://github.com/madoiscool) alongside the original [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool) project and assets.
 - **SLSsteam**: TOST integrates with [SLSsteam](https://github.com/AceSLS/SLSsteam) for Linux support, owned and maintained by its respective contributors.
 
 ### Disclaimer

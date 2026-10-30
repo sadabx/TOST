@@ -57,7 +57,7 @@ public sealed class OpenSteamToolInstallerService
     private const long MaximumEntryBytes = 256L * 1024 * 1024;
     private const long MaximumPayloadBytes = 512L * 1024 * 1024;
     private const int MaximumArchiveEntries = 10_000;
-    private static readonly Uri LatestReleaseUri = new("https://github.com/OpenSteam001/OpenSteamTool/releases/latest");
+    private static readonly Uri LatestReleaseUri = new("https://github.com/madoiscool/BetterSteamTools/releases/latest");
     private readonly HttpClient client;
 
     public OpenSteamToolInstallerService(HttpClient client)
@@ -127,11 +127,11 @@ public sealed class OpenSteamToolInstallerService
         }
 
         var tag = Uri.UnescapeDataString(segments[marker + 1]);
-        var assetsUri = new Uri($"https://github.com/OpenSteam001/OpenSteamTool/releases/expanded_assets/{Uri.EscapeDataString(tag)}");
+        var assetsUri = new Uri($"https://github.com/madoiscool/BetterSteamTools/releases/expanded_assets/{Uri.EscapeDataString(tag)}");
         var html = await client.GetStringAsync(assetsUri, cancellationToken);
         var paths = Regex.Matches(
                 html,
-                "href=\"(?<path>/OpenSteam001/OpenSteamTool/releases/download/[^\"]+\\.zip)\"",
+                "href=\"(?<path>/(?:madoiscool/BetterSteamTools|OpenSteam001/OpenSteamTool)/releases/download/[^\"]+\\.zip)\"",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
             .Select(match => WebUtility.HtmlDecode(match.Groups["path"].Value))
             .Where(path =>
