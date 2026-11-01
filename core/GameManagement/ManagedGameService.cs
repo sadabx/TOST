@@ -35,12 +35,31 @@ public sealed class ManagedGameService
     {
         var luaRoot = Path.GetFullPath(installation.ManagedScriptsPath);
         var manifestRoot = Path.GetFullPath(installation.ManagedManifestsPath);
-        if (!Directory.Exists(luaRoot)) return [];
-
         var manifests = FindDepotManifests(manifestRoot);
+
+        var candidateFiles = new List<string>();
+        if (Directory.Exists(luaRoot))
+        {
+            candidateFiles.AddRange(Directory.EnumerateFiles(luaRoot, "*.lua", SearchOption.TopDirectoryOnly));
+        }
+
+        var legacyRoot = Path.GetFullPath(installation.LegacyScriptsPath);
+        if (!string.Equals(luaRoot, legacyRoot, StringComparison.OrdinalIgnoreCase) && Directory.Exists(legacyRoot))
+        {
+            var seen = new HashSet<string>(candidateFiles.Select(Path.GetFileName).OfType<string>(), StringComparer.OrdinalIgnoreCase);
+            foreach (var file in Directory.EnumerateFiles(legacyRoot, "*.lua", SearchOption.TopDirectoryOnly))
+            {
+                if (seen.Add(Path.GetFileName(file)))
+                {
+                    candidateFiles.Add(file);
+                }
+            }
+        }
+
+        if (candidateFiles.Count == 0) return [];
+
         var games = new List<ManagedGame>();
-        foreach (var path in Directory.EnumerateFiles(luaRoot, "*.lua", SearchOption.TopDirectoryOnly)
-                     .OrderBy(Path.GetFileName, StringComparer.Ordinal))
+        foreach (var path in candidateFiles.OrderBy(Path.GetFileName, StringComparer.Ordinal))
         {
             var info = new FileInfo(path);
             if (info.LinkTarget is not null) continue;
@@ -98,18 +117,27 @@ public sealed class ManagedGameService
             .Distinct(StringComparer.Ordinal).Count() - manifestFiles.Length;
 
         var files = new List<RemovedFileEntry>();
-        foreach (var game in selectedGames) AddFile(files, "Lua", game.LuaPath, installation.ManagedScriptsPath);
-        foreach (var path in manifestFiles) AddFile(files, "Manifest", path, installation.ManagedManifestsPath);
+        foreach (var game in selectedGames) AddFile(files, "Lua", game.LuaPath, installation);
+        foreach (var path in manifestFiles) AddFile(files, "Manifest", path, installation);
         
         try
         {
             foreach (var file in files)
             {
-                var root = file.Kind == "Lua" ? installation.ManagedScriptsPath : installation.ManagedManifestsPath;
-                var source = Path.Combine(root, file.FileName);
-                if (File.Exists(source))
+                if (file.Kind == "Lua")
                 {
-                    File.Delete(source);
+                    var primary = Path.Combine(installation.ManagedScriptsPath, file.FileName);
+                    if (File.Exists(primary)) File.Delete(primary);
+                    var legacy = Path.Combine(installation.LegacyScriptsPath, file.FileName);
+                    if (File.Exists(legacy)) File.Delete(legacy);
+                }
+                else
+                {
+                    var source = Path.Combine(installation.ManagedManifestsPath, file.FileName);
+                    if (File.Exists(source))
+                    {
+                        File.Delete(source);
+                    }
                 }
             }
         }
@@ -182,10 +210,13 @@ public sealed class ManagedGameService
         return result;
     }
 
-    private static void AddFile(List<RemovedFileEntry> files, string kind, string source, string root)
+    private static void AddFile(List<RemovedFileEntry> files, string kind, string source, SteamInstallation installation)
     {
         var path = Path.GetFullPath(source);
-        if (!IsInside(path, root) || !File.Exists(path) || new FileInfo(path).LinkTarget is not null)
+        bool inside = kind == "Lua"
+            ? IsInside(path, installation.ManagedScriptsPath) || IsInside(path, installation.LegacyScriptsPath)
+            : IsInside(path, installation.ManagedManifestsPath);
+        if (!inside || !File.Exists(path) || new FileInfo(path).LinkTarget is not null)
             throw new InvalidDataException($"Managed file is outside its expected directory: {source}");
         var name = Path.GetFileName(path);
         if (!files.Any(item => item.Kind == kind && item.FileName == name))

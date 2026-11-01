@@ -386,10 +386,12 @@ public sealed class OpenSteamToolInstallerService
         var tomlPath = Path.Combine(steamRoot, "opensteamtool.toml");
         try
         {
+            MigrateLegacyScripts(steamRoot);
+
             if (!File.Exists(tomlPath))
             {
                 File.WriteAllText(tomlPath,
-                    $"[manifest]\nurl = \"steamrun\"\n\n[remote]\nurl_template = \"{DefaultRemoteUrlTemplate}\"\n",
+                    $"[manifest]\nurl = \"steamrun\"\n\n[remote]\nurl_template = \"{DefaultRemoteUrlTemplate}\"\n\n[lua]\npaths = [\"config/stplug-in\", \"config/lua\"]\n",
                     new System.Text.UTF8Encoding(false));
                 return;
             }
@@ -431,6 +433,27 @@ public sealed class OpenSteamToolInstallerService
                 changed = true;
             }
 
+            // Ensure [lua] section exists and contains both paths
+            if (!Regex.IsMatch(text, @"(?m)^\s*\[lua\]", RegexOptions.IgnoreCase))
+            {
+                text = text.TrimEnd() + "\n\n[lua]\npaths = [\"config/stplug-in\", \"config/lua\"]\n";
+                changed = true;
+            }
+            else if (Regex.IsMatch(text, @"(?m)^\s*paths\s*=", RegexOptions.IgnoreCase))
+            {
+                if (!Regex.IsMatch(text, @"[""']config/lua[""']", RegexOptions.IgnoreCase) ||
+                    !Regex.IsMatch(text, @"[""']config/stplug-in[""']", RegexOptions.IgnoreCase))
+                {
+                    text = Regex.Replace(text, @"(?m)^\s*paths\s*=.*$", "paths = [\"config/stplug-in\", \"config/lua\"]", RegexOptions.IgnoreCase);
+                    changed = true;
+                }
+            }
+            else
+            {
+                text = Regex.Replace(text, @"(?m)(^\s*\[lua\]\s*$)", "$1\npaths = [\"config/stplug-in\", \"config/lua\"]", RegexOptions.IgnoreCase);
+                changed = true;
+            }
+
             if (changed)
             {
                 File.WriteAllText(tomlPath, text, new System.Text.UTF8Encoding(false));
@@ -439,6 +462,33 @@ public sealed class OpenSteamToolInstallerService
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Best effort - do not fail if Steam or Windows locks the file
+        }
+    }
+
+    public static void MigrateLegacyScripts(string steamRoot)
+    {
+        try
+        {
+            var legacyDir = Path.Combine(steamRoot, "config", "lua");
+            var targetDir = Path.Combine(steamRoot, "config", "stplug-in");
+            if (!Directory.Exists(legacyDir))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(targetDir);
+            foreach (var file in Directory.EnumerateFiles(legacyDir, "*.lua", SearchOption.TopDirectoryOnly))
+            {
+                var destination = Path.Combine(targetDir, Path.GetFileName(file));
+                if (!File.Exists(destination))
+                {
+                    File.Copy(file, destination, overwrite: false);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort migration
         }
     }
 }

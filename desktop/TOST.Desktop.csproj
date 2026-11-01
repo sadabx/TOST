@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>TOST.Desktop</AssemblyName>
     <RootNamespace>Trionine.TOST.Desktop</RootNamespace>
-    <Version>2.0.8</Version>
+    <Version>2.0.9</Version>
     <ApplicationIcon Condition="$([MSBuild]::IsOSPlatform('Windows'))">..\docs\logo.ico</ApplicationIcon>
     <NoWarn>$(NoWarn);CS9057</NoWarn>
   </PropertyGroup>

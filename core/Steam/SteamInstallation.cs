@@ -17,9 +17,8 @@ public sealed record SteamInstallation(
     public string ConfigPath => Path.Combine(RootPath, "config");
     public string SlsPluginPath => Path.Combine(ConfigPath, "stplug-in");
     public string DepotCachePath => Path.Combine(RootPath, "depotcache");
-    public string ManagedScriptsPath => Kind == SteamInstallationKind.Windows
-        ? Path.Combine(ConfigPath, "lua")
-        : SlsPluginPath;
+    public string ManagedScriptsPath => SlsPluginPath;
+    public string LegacyScriptsPath => Path.Combine(ConfigPath, "lua");
     public string ManagedManifestsPath => DepotCachePath;
     public string CommonAppsPath => Path.Combine(SteamAppsPath, "common");
     public string UserDataPath => Path.Combine(RootPath, "userdata");

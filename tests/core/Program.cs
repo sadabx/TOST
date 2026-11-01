@@ -316,8 +316,13 @@ static void TestWindowsImportRouting()
 
     var imported = new SteamImportService().ApplyNewFiles(installation, [lua, manifest]);
     True(imported.Success, "Windows OST import did not complete.");
-    True(File.Exists(Path.Combine(steamRoot, "config", "lua", "10.lua")), "Windows Lua did not route to config/lua.");
+    True(File.Exists(Path.Combine(steamRoot, "config", "stplug-in", "10.lua")), "Windows Lua did not route to config/stplug-in.");
     True(File.Exists(Path.Combine(steamRoot, "depotcache", "20_100.manifest")), "Windows manifest did not route to depotcache.");
+
+    // Verify migration of legacy scripts
+    var legacyDir = Path.Combine(steamRoot, "config", "lua");
+    Directory.CreateDirectory(legacyDir);
+    File.WriteAllText(Path.Combine(legacyDir, "legacy.lua"), "addappid(99)\n");
 
     using var client = new HttpClient();
     var ostInstaller = new OpenSteamToolInstallerService(client);
@@ -326,12 +331,14 @@ static void TestWindowsImportRouting()
     var ostImported = ostInstaller.Import(installation, [ostManifest], overwrite: true, backupBeforeOverwrite: false);
     True(ostImported.Success, "OST direct import did not complete.");
     True(File.Exists(Path.Combine(steamRoot, "depotcache", "30_200.manifest")), "OST direct import did not route manifest to depotcache.");
+    True(File.Exists(Path.Combine(steamRoot, "config", "stplug-in", "legacy.lua")), "Legacy Lua was not migrated to config/stplug-in.");
     True(File.Exists(Path.Combine(steamRoot, "opensteamtool.toml")), "opensteamtool.toml was not auto-created.");
     var tomlContent = File.ReadAllText(Path.Combine(steamRoot, "opensteamtool.toml"));
     True(tomlContent.Contains("url = \"steamrun\""), "opensteamtool.toml does not configure steamrun.");
     True(tomlContent.Contains("madoiscool/steam-monitor"), "opensteamtool.toml does not configure community pattern tracker.");
+    True(tomlContent.Contains("config/stplug-in") && tomlContent.Contains("config/lua"), "opensteamtool.toml does not configure both Lua directories.");
 
-    // Verify upgrade of dead OpenSteam001 URL
+    // Verify upgrade of dead OpenSteam001 URL and missing lua paths
     var deadToml = "[manifest]\nurl = \"opensteamtool\"\n\n[remote]\nurl_template = \"https://cdn.jsdelivr.net/gh/OpenSteam001/steam-monitor@{channel}/{component}/{sha256}.toml\"\n";
     File.WriteAllText(Path.Combine(steamRoot, "opensteamtool.toml"), deadToml);
     OpenSteamToolInstallerService.EnsureTomlConfigured(steamRoot);
@@ -339,9 +346,10 @@ static void TestWindowsImportRouting()
     True(upgradedToml.Contains("url = \"steamrun\""), "opensteamtool.toml did not upgrade opensteamtool to steamrun.");
     True(!upgradedToml.Contains("OpenSteam001"), "opensteamtool.toml still contains dead OpenSteam001 tracker.");
     True(upgradedToml.Contains("madoiscool/steam-monitor"), "opensteamtool.toml did not upgrade to madoiscool tracker.");
+    True(upgradedToml.Contains("paths = [\"config/stplug-in\", \"config/lua\"]"), "opensteamtool.toml did not add lua paths.");
 
     var games = new ManagedGameService().FindManagedGames(installation);
-    True(games.Count == 1 && games[0].ManifestPaths.Count == 1, "Windows Game Manager did not use the OST paths.");
+    True(games.Count == 2, $"Expected 2 managed games, found {games.Count}.");
 }
 
 static void TestOpenSteamToolLockMessage()

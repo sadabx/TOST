@@ -31,7 +31,18 @@ internal sealed class FloatingIconWindow : Window
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Topmost = alwaysOnTop;
         WindowStartupLocation = WindowStartupLocation.Manual;
-        Opened += (_, _) => PositionAtScreenCenter();
+        Opened += (_, _) =>
+        {
+            PositionAtScreenCenter();
+            if (DesktopPlatform.UsesOpenSteamTool)
+            {
+                var steam = DesktopPlatform.PreferredInstallation();
+                if (steam is not null)
+                {
+                    OpenSteamToolInstallerService.EnsureTomlConfigured(steam.RootPath);
+                }
+            }
+        };
 
         surface = new Border
         {
