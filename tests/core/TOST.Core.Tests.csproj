@@ -6,6 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\TOST.Core.csproj" />
+    <ProjectReference Include="..\..\core\TOST.Core.csproj" />
   </ItemGroup>
 </Project>

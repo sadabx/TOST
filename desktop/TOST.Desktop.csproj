@@ -7,14 +7,14 @@
     <AssemblyName>TOST.Desktop</AssemblyName>
     <RootNamespace>Trionine.TOST.Desktop</RootNamespace>
     <Version>2.0.8</Version>
-    <ApplicationIcon Condition="$([MSBuild]::IsOSPlatform('Windows'))">..\Assets\tost.ico</ApplicationIcon>
+    <ApplicationIcon Condition="$([MSBuild]::IsOSPlatform('Windows'))">..\docs\logo.ico</ApplicationIcon>
     <NoWarn>$(NoWarn);CS9057</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="12.1.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
     <PackageReference Include="Velopack" Version="1.2.0" />
-    <ProjectReference Include="..\Core\TOST.Core.csproj" />
-    <AvaloniaResource Include="..\Assets\TOST.png" Link="Assets\TOST.png" />
+    <ProjectReference Include="..\core\TOST.Core.csproj" />
+    <AvaloniaResource Include="..\docs\logo.png" Link="Assets\TOST.png" />
   </ItemGroup>
 </Project>

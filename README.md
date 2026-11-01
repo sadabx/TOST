@@ -1,125 +1,96 @@
 <div align="center">
-  <img src="Assets/TOST.png" alt="TOST Logo" width="150"/>
+  <img src="docs/logo.png" alt="TOST Logo" width="130"/>
   <h1>TOST</h1>
-  <p><b>Trionine Open Steam Tool</b></p>
   <p>
     <img src="https://img.shields.io/badge/C%23-10.0%2B-239120?logo=csharp&logoColor=white" alt="C#">
     <img src="https://img.shields.io/badge/Avalonia-11.0%2B-purple?logo=avalonia&logoColor=white" alt="Avalonia UI">
-    <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-blue" alt="Cross Platform">
+    <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20-blue" alt="Platform">
   </p>
 </div>
 
-## Index
-
-1. [What is TOST?](#what-is-tost)
-2. [Features](#features)
-3. [Getting Started](#getting-started)
-4. [Screenshots](#screenshots)
-5. [Building from Source](#building-from-source)
-6. [Support](#support)
-7. [Credits](#credits)
+---
 
 ## What is TOST?
 
-TOST is a modern, cross-platform floating desktop companion for Steam. It simplifies the installation and management of game manifests, Lua plugins, and Steam backend tools. 
+For a long time, the original **Steamtools** was popular for manifest sideloading, but it was closed-source, proprietary, and eventually abandoned.
 
-On **Windows**, TOST seamlessly manages [OpenSteamTool](https://github.com/madoiscool/BetterSteamTools) (powered by the actively maintained [BetterSteamTools](https://github.com/madoiscool/BetterSteamTools) upstream). 
-On **Linux**, it manages [SLSsteam](https://github.com/AceSLS/SLSsteam). 
+The community created **OpenSteamTool** (and now the actively maintained **[BetterSteamTools](https://github.com/madoiscool/BetterSteamTools)** fork) to replace it with a transparent, open-source C++ engine. However, these tools are bare DLLs without a user interface—forcing people to manually extract files, edit `.toml` configs, and dig through Steam folders.
 
-Instead of manually digging through Steam folders to paste `.manifest` and `.lua` files, TOST lets you drag and drop them right onto its floating icon. It handles all the file routing, backups, and configurations for you automatically.
+**TOST** is the missing open-source GUI: it brings back the dead-simple floating drag-and-drop icon, powered entirely by open-source community tools under the hood.
 
-## Features
+* **One-click engine setup:** Right-click the floating icon → **Apply OST** to automatically fetch and configure the latest unlocker.
+* **Drag-and-drop routing:** Drop `.manifest`, `.lua`, or `.zip` files onto the icon to install them into Steam.
+* **Game Manager:** View and remove installed games and manifests cleanly.
+---
 
-### Core Management
-- **Floating Desktop Icon**: A sleek, unobtrusive floating widget that sits on your screen for quick drag-and-drop installations.
-- **One-Click Tool Installation**: Automatically download, install, or repair OpenSteamTool (Windows) or SLSsteam (Linux) with a single click.
-- **Drag-and-Drop Installation**: Drop local `.zip`, `.lua`, or `.manifest` packages onto TOST, and it will route everything to the correct Steam directories.
-- **Built-in Game Manager**: Easily view, remove, or restore managed games and their associated files without breaking your Steam installation.
+## Installation
 
-### Safety and Compatibility
-- **Safe Operations**: TOST automatically backs up existing files before replacing them and refuses to execute unverified Lua scripts.
-- **Linux Support (Experimental)**: Support for both standard Steam and Flatpak Steam on Linux. *(Development is currently paused)*
-
-## Getting Started
-
-### Installation
-Head over to the [TOST Releases Page](https://github.com/sadabx/TOST/releases) and download the latest version for your operating system.
-
-- **Windows Users**: Download `*-Setup.exe` for a standard installation (recommended), or `*-Portable.zip` if you prefer a standalone directory.
-- **Linux Users**: For a quick, automated installation on Linux, run:
+* **Windows:** Download `TOST-Setup.exe` (or `TOST-Portable.zip`) from the **[Releases](https://github.com/sadabx/TOST/releases)** page.
+* **Linux:** Run the one-line install command:
   ```bash
   curl -sSL https://raw.githubusercontent.com/sadabx/TOST/main/install.sh | bash
   ```
-  *(Alternatively, you can manually download the `.AppImage`, `.deb`, `.pkg.tar.zst`, or `.tar.gz`)*
+  *(Or grab the `.AppImage`, `.deb`, or `.pkg.tar.zst` manually from Releases).*
 
-> [!WARNING]
-> **Linux Development Paused**: Linux support is currently experimental and development is paused. Currently, TOST on Linux manages backend configurations and adds games to your Steam library via SLSsteam, but **it cannot automatically download game files**. You will need a third-party tool (like Accela) to download the game files after importing them with TOST.
+---
 
-### Basic Usage
-1. Launch TOST. A floating "T" icon will appear on your screen.
-2. Right-click the icon to open the main menu.
-3. Select **Apply OST** (Windows) or **Apply SLSsteam** (Linux) to initialize the backend engine.
-4. Drag and drop game packages (ZIPs, manifests, lua files) directly onto the floating icon to install them into Steam.
-5. Open the **Manage Games** menu to review installed modifications or to safely remove them.
+## How to use
+
+1. Launch TOST. A small floating icon will appear on your desktop.
+2. Right-click the icon and click **Apply OST** (Windows) or **Apply SLSsteam** (Linux) to set up the engine.
+3. Drag and drop your `.manifest`, `.lua`, or `.zip` files onto the icon.
+4. Restart Steam and you're good to go!
+
+> [!TIP]
+> **Important:** Whenever you first install TOST, update TOST, or after a major Steam client update, always open the menu and click **Apply OST** to ensure the latest hook files are active inside Steam.
+
+> [!NOTE]
+> **Linux Users:** Active Linux development on TOST is currently on pause. For a complete automated Linux setup to download and unlock games, we recommend checking out **[Enter the Wired](https://github.com/ciscosweater/enter-the-wired)** (Accela + SLSsteam combo installer).
+
+---
 
 ## Screenshots
 
 <details>
-<summary>Click to expand screenshots</summary>
+<summary><b>Click to expand</b></summary>
+<br/>
 
-### The Floating Menu
-![TOST menu](Assets/ss/TOST.png)
+### Menu
+![TOST menu](docs/screenshots/menu.png)
 
 ### Game Manager
-![TOST Game Manager](Assets/ss/game-manager.png)
+![TOST Game Manager](docs/screenshots/game-manager.png)
 
-### Settings & Imports
-![TOST file import](Assets/ss/files-dropped.png)
+### Dropping files
+![TOST file import](docs/screenshots/files-dropped.png)
+
 </details>
 
-## Building from Source
+---
 
-TOST is built with C# and [Avalonia UI](https://avaloniaui.net/) for a shared, native cross-platform experience.
+## Building from source
 
-### Project Structure
-- `Core/` - Shared business logic, Steam detection, and file routing.
-- `Desktop/` - The modern Avalonia UI (Windows & Linux).
-- `CLI/` - Linux terminal interface.
-- `Tests/` - Automated unit test suite.
-- `Legacy/` - The old, retired WinForms reference application.
+Requires [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 
-### Requirements
-- .NET 8.0 SDK
-
-### Quick Build
-**Run the Desktop App:**
 ```bash
-dotnet run --project Desktop/TOST.Desktop.csproj
+git clone https://github.com/sadabx/TOST.git
+cd TOST
+dotnet run --project desktop/TOST.Desktop.csproj
 ```
 
-**Run the CLI (Linux):**
-```bash
-dotnet run --project CLI/Linux/TOST.Linux.csproj -- help
-```
+*(Architecture and technical details are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).)*
 
-### Linux Architecture Details
-Linux support (CLI and Desktop) natively supports Steam and Flatpak Steam. TOST safely parses Lua declarations without executing them, translates App IDs and overrides into `config.yaml`, and registers depot keys in `config.vdf`. It also generates guarded native Steam wrappers or per-user Flatpak environment overrides (`configure-launch`).
-
-## Support
-
-Please ensure you are running the latest release of TOST before reporting issues. Bug reports and feature requests should be submitted to the [GitHub Issue Tracker](https://github.com/sadabx/TOST/issues).
+---
 
 ## Credits
 
-### Contributors
-- Developed and maintained by [trionine](https://github.com/trionine).
-
-### Upstream Projects
-- **OpenSteamTool & BetterSteamTools**: TOST manages OpenSteamTool on Windows, utilizing the actively maintained [BetterSteamTools](https://github.com/madoiscool/BetterSteamTools) fork by [madoiscool](https://github.com/madoiscool) alongside the original [OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool) project and assets.
-- **SLSsteam**: TOST integrates with [SLSsteam](https://github.com/AceSLS/SLSsteam) for Linux support, owned and maintained by its respective contributors.
+- **[BetterSteamTools](https://github.com/madoiscool/BetterSteamTools)** by **[madoiscool](https://github.com/madoiscool)** — The actively maintained Windows backend engine.
+- **[OpenSteamTool](https://github.com/OpenSteam001/OpenSteamTool)** — The original open-source Windows hook foundation.
+- **[SLSsteam](https://github.com/AceSLS/SLSsteam)** by **[AceSLS](https://github.com/AceSLS)** — Linux Steam client modding & backend.
 
 ### Disclaimer
-This project is provided for research and educational purposes only. TOST is an independent open-source manager and is not affiliated with, maintained, or endorsed by OpenSteamTool, SLSsteam, Valve, or Steam. You are responsible for complying with local laws, platform terms of service, and software licenses.
+This project is for research and educational purposes only. TOST is not affiliated with, endorsed by, or connected to Valve, Steam, OpenSteamTool, or SLSsteam.
 
 ---
-Distributed under the **GNU General Public License v3.0**. See the [LICENSE](LICENSE) file for details.
+
+Distributed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for details.

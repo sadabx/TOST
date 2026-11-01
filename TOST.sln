@@ -1,15 +1,15 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TOST.Core", "Core\TOST.Core.csproj", "{C6C44EAD-CCF1-4A04-935C-E1338228FFD3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TOST.Core", "core\TOST.Core.csproj", "{C6C44EAD-CCF1-4A04-935C-E1338228FFD3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TOST.Linux", "CLI\Linux\TOST.Linux.csproj", "{ECB8F70A-4708-4942-9227-97AD43751EE9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TOST.Linux", "cli\TOST.Linux.csproj", "{ECB8F70A-4708-4942-9227-97AD43751EE9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TOST.Core.Tests", "Tests\Core\TOST.Core.Tests.csproj", "{21D0A2DF-4291-4156-BBCF-F4F58375EA44}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TOST.Core.Tests", "tests\core\TOST.Core.Tests.csproj", "{21D0A2DF-4291-4156-BBCF-F4F58375EA44}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TOST.Desktop", "Desktop\TOST.Desktop.csproj", "{A15A12AD-D681-46D7-8510-5288CFF96965}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TOST.Desktop", "desktop\TOST.Desktop.csproj", "{A15A12AD-D681-46D7-8510-5288CFF96965}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

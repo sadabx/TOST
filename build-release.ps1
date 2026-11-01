@@ -10,7 +10,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Project = Join-Path $ProjectRoot "Desktop\TOST.Desktop.csproj"
+$Project = Join-Path $ProjectRoot "desktop\TOST.Desktop.csproj"
 $PublishDir = Join-Path $ProjectRoot "artifacts\publish\win-x64"
 $ReleaseDir = Join-Path $ProjectRoot "Releases"
 $RepositoryUrl = "https://github.com/sadabx/TOST"
@@ -57,7 +57,7 @@ dotnet vpk pack `
     --mainExe TOST.Desktop.exe `
     --packTitle "TOST" `
     --packAuthors "Trionine" `
-    --icon (Join-Path $ProjectRoot "Assets\tost.ico") `
+    --icon (Join-Path $ProjectRoot "docs\logo.ico") `
     --instLicense (Join-Path $ProjectRoot "LICENSE") `
     --instReadme (Join-Path $ProjectRoot "README.md") `
     --runtime win-x64 `

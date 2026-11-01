@@ -25,7 +25,7 @@ source=(
     "${pkgname}-${pkgver}.tar.gz::https://github.com/sadabx/TOST/releases/download/v${pkgver}/TOST-${pkgver}-linux-x64.tar.gz"
     "tost.desktop::https://raw.githubusercontent.com/sadabx/TOST/v${pkgver}/packaging/linux/tost.desktop"
     "tost.appdata.xml::https://raw.githubusercontent.com/sadabx/TOST/v${pkgver}/packaging/linux/tost.appdata.xml"
-    "tost.png::https://raw.githubusercontent.com/sadabx/TOST/v${pkgver}/Assets/TOST.png"
+    "tost.png::https://raw.githubusercontent.com/sadabx/TOST/v${pkgver}/docs/logo.png"
 )
 sha256sums=(
     'bf908564dbc0ef777b6842868fda6827c02201010114ae0366f986efe57fbf78'
