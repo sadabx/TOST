@@ -1,9 +1,9 @@
 using Trionine.TOST.Core.Imports;
 using Trionine.TOST.Core.Integrations.SlsSteam;
-using Trionine.TOST.Core.Integrations.OpenSteamTool;
 using Trionine.TOST.Core.Steam;
 using Trionine.TOST.Core.GameManagement;
 using Trionine.TOST.Core.Configuration;
+using Trionine.TOST.Core.Downloads;
 using System.IO.Compression;
 using System.Net;
 using System.Security.Cryptography;
@@ -18,16 +18,17 @@ var tests = new (string Name, Action Run)[]
     ("SLSsteam installer verifies and extracts only managed libraries", TestSlsSteamInstaller),
     ("Native and Flatpak launch hooks are guarded and removable", TestLaunchConfiguration),
     ("Imports route into a fake Steam installation and reject conflicts", TestImportRouting),
-    ("Virtual app manifests are generated for lua imports missing ACF files", TestVirtualAppManifestGeneration),
-    ("Windows imports and game management use the OST Steam layout", TestWindowsImportRouting),
-    ("OST lock errors explain how to close Steam and retry", TestOpenSteamToolLockMessage),
     ("Configuration changes back up and restore exact bytes", TestConfigBackupRestore),
     ("Linux Steam discovery uses only the supplied fake home", TestSteamDiscovery),
     ("SLSsteam libraries archive and restore in a fake installation", TestSlsRecovery),
     ("Managed games archive only unshared manifests and restore safely", TestManagedGames),
     ("Desktop preferences save atomically and normalize bounded values", TestPreferences),
     ("Steam restart plans use native commands without process termination", TestSteamRestartPlan),
-    ("Linux autostart manages only its exact marker-owned desktop entry", TestLinuxAutostart)
+    ("Linux autostart manages only its exact marker-owned desktop entry", TestLinuxAutostart),
+    ("DepotDownloader locator detects tools in search paths", TestDepotDownloaderLocator),
+    ("Depot key extractor reads keys from Lua and Steam config.vdf", TestDepotKeyExtractor),
+    ("Game download planner creates multi-depot plan with sanitized dir", TestGameDownloadPlanner),
+    ("Game install status checks ACF StateFlags and game directories", TestGameInstallStatus)
 };
 
 var failures = 0;
@@ -206,24 +207,6 @@ static void TestImportRouting()
     True(service.CreatePlan(steam, [lua]).CanApply, "Existing destination was incorrectly rejected.");
 }
 
-static void TestVirtualAppManifestGeneration()
-{
-    using var fixture = new TemporaryDirectory();
-    var steam = new SteamInstallation(fixture.Path, SteamInstallationKind.Windows, false, false);
-
-    var lua = Path.Combine(fixture.Path, "11.lua");
-    File.WriteAllText(lua, "addappid(11)\n");
-
-    var service = new SteamImportService();
-    var result = service.ApplyNewFiles(steam, [lua]);
-    True(result.Success, result.Message);
-    True(File.Exists(Path.Combine(steam.ManagedScriptsPath, "11.lua")), "Lua destination missing.");
-    
-    var generatedManifest = Path.Combine(steam.SteamAppsPath, "appmanifest_11.acf");
-    True(File.Exists(generatedManifest), "Virtual app manifest was not generated.");
-    True(File.ReadAllText(generatedManifest).Contains("\"StateFlags\"\t\t\"2\""), "Generated manifest is missing required StateFlags.");
-}
-
 static void TestConfigBackupRestore()
 {
     using var fixture = new TemporaryDirectory();
@@ -300,73 +283,6 @@ static void TestManagedGames()
     True(File.Exists(Path.Combine(depotCache, "30_200.manifest")), "Shared manifest should have remained in place.");
 }
 
-static void TestWindowsImportRouting()
-{
-    using var fixture = new TemporaryDirectory();
-    var source = Path.Combine(fixture.Path, "source");
-    var steamRoot = Path.Combine(fixture.Path, "Steam");
-    Directory.CreateDirectory(source);
-    Directory.CreateDirectory(Path.Combine(steamRoot, "config"));
-    Directory.CreateDirectory(Path.Combine(steamRoot, "steamapps"));
-    var lua = Path.Combine(source, "10.lua");
-    var manifest = Path.Combine(source, "20_100.manifest");
-    File.WriteAllText(lua, "addappid(10)\nsetManifestid(20, \"100\")\n");
-    File.WriteAllText(manifest, "manifest");
-    var installation = new SteamInstallation(steamRoot, SteamInstallationKind.Windows, true, true);
-
-    var imported = new SteamImportService().ApplyNewFiles(installation, [lua, manifest]);
-    True(imported.Success, "Windows OST import did not complete.");
-    True(File.Exists(Path.Combine(steamRoot, "config", "stplug-in", "10.lua")), "Windows Lua did not route to config/stplug-in.");
-    True(File.Exists(Path.Combine(steamRoot, "depotcache", "20_100.manifest")), "Windows manifest did not route to depotcache.");
-
-    // Verify migration of legacy scripts
-    var legacyDir = Path.Combine(steamRoot, "config", "lua");
-    Directory.CreateDirectory(legacyDir);
-    File.WriteAllText(Path.Combine(legacyDir, "legacy.lua"), "addappid(99)\n");
-
-    using var client = new HttpClient();
-    var ostInstaller = new OpenSteamToolInstallerService(client);
-    var ostManifest = Path.Combine(source, "30_200.manifest");
-    File.WriteAllText(ostManifest, "ost_manifest");
-    var ostImported = ostInstaller.Import(installation, [ostManifest], overwrite: true, backupBeforeOverwrite: false);
-    True(ostImported.Success, "OST direct import did not complete.");
-    True(File.Exists(Path.Combine(steamRoot, "depotcache", "30_200.manifest")), "OST direct import did not route manifest to depotcache.");
-    True(File.Exists(Path.Combine(steamRoot, "config", "stplug-in", "legacy.lua")), "Legacy Lua was not migrated to config/stplug-in.");
-    True(File.Exists(Path.Combine(steamRoot, "opensteamtool.toml")), "opensteamtool.toml was not auto-created.");
-    var tomlContent = File.ReadAllText(Path.Combine(steamRoot, "opensteamtool.toml"));
-    True(tomlContent.Contains("url = \"steamrun\""), "opensteamtool.toml does not configure steamrun.");
-    True(tomlContent.Contains("madoiscool/steam-monitor"), "opensteamtool.toml does not configure community pattern tracker.");
-    True(tomlContent.Contains("config/stplug-in") && tomlContent.Contains("config/lua"), "opensteamtool.toml does not configure both Lua directories.");
-
-    // Verify upgrade of dead OpenSteam001 URL and missing lua paths
-    var deadToml = "[manifest]\nurl = \"opensteamtool\"\n\n[remote]\nurl_template = \"https://cdn.jsdelivr.net/gh/OpenSteam001/steam-monitor@{channel}/{component}/{sha256}.toml\"\n";
-    File.WriteAllText(Path.Combine(steamRoot, "opensteamtool.toml"), deadToml);
-    OpenSteamToolInstallerService.EnsureTomlConfigured(steamRoot);
-    var upgradedToml = File.ReadAllText(Path.Combine(steamRoot, "opensteamtool.toml"));
-    True(upgradedToml.Contains("url = \"steamrun\""), "opensteamtool.toml did not upgrade opensteamtool to steamrun.");
-    True(!upgradedToml.Contains("OpenSteam001"), "opensteamtool.toml still contains dead OpenSteam001 tracker.");
-    True(upgradedToml.Contains("madoiscool/steam-monitor"), "opensteamtool.toml did not upgrade to madoiscool tracker.");
-    True(upgradedToml.Contains("paths = [\"config/stplug-in\", \"config/lua\"]"), "opensteamtool.toml did not add lua paths.");
-
-    var games = new ManagedGameService().FindManagedGames(installation);
-    True(games.Count == 2, $"Expected 2 managed games, found {games.Count}.");
-}
-
-static void TestOpenSteamToolLockMessage()
-{
-    var result = new OpenSteamToolInstallResult(
-        "1.4.8",
-        [
-            new OpenSteamToolFileResult("OpenSteamTool.dll", null, "Access to the path is denied."),
-            new OpenSteamToolFileResult("opensteamtool.toml", @"C:\\Steam\\opensteamtool.toml", null)
-        ]);
-    var message = result.ToMessage();
-    True(message.Contains("Close Steam completely", StringComparison.Ordinal) &&
-         message.Contains("Steam > Exit", StringComparison.Ordinal) &&
-         message.Contains("restart TOST as administrator", StringComparison.Ordinal),
-        "OST lock errors did not provide actionable recovery instructions.");
-}
-
 static void TestPreferences()
 {
     using var fixture = new TemporaryDirectory();
@@ -420,6 +336,88 @@ static void TestLinuxAutostart()
     File.WriteAllText(enabled.Path, "unmanaged");
     try { service.Disable(directory, executable); throw new InvalidOperationException("Unmanaged autostart entry was removed."); }
     catch (IOException) { }
+}
+
+static void TestDepotDownloaderLocator()
+{
+    using var fixture = new TemporaryDirectory();
+    var customTool = Path.Combine(fixture.Path, "DepotDownloaderMod");
+    File.WriteAllText(customTool, "#!/bin/sh\n");
+    var found = DepotDownloaderLocator.FindExecutable(customTool);
+    True(found == customTool, "Explicit tool path was not found.");
+    True(DepotDownloaderLocator.GetDefaultExecutablePath().EndsWith("DepotDownloaderMod"), "Default executable path is invalid.");
+}
+
+static void TestDepotKeyExtractor()
+{
+    using var fixture = new TemporaryDirectory();
+    var steam = new SteamInstallation(fixture.Path, SteamInstallationKind.Native, true, true);
+    Directory.CreateDirectory(steam.ConfigPath);
+    Directory.CreateDirectory(steam.ManagedScriptsPath);
+
+    var lua = Path.Combine(steam.ManagedScriptsPath, "100.lua");
+    File.WriteAllText(lua, "addappid(100)\nsetdepotkey(101, \"aabb1122\")\naddappid(102, 1, \"ccdd3344\")\n");
+
+    var configVdf = Path.Combine(steam.ConfigPath, "config.vdf");
+    File.WriteAllText(configVdf,
+        "\"InstallConfigStore\"\n{\n\t\"Software\"\n\t{\n\t\t\"Valve\"\n\t\t{\n\t\t\t\"Steam\"\n\t\t\t{\n\t\t\t\t\"depots\"\n\t\t\t\t{\n\t\t\t\t\t\"103\"\n\t\t\t\t\t{\n\t\t\t\t\t\t\"DecryptionKey\"\t\t\"eeff5566\"\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n");
+
+    var keys = DepotKeyExtractor.ExtractKeys(steam, lua);
+    True(keys["101"] == "aabb1122", "Key from setdepotkey was not extracted.");
+    True(keys["102"] == "ccdd3344", "Key from addappid was not extracted.");
+    True(keys["103"] == "eeff5566", "Key from config.vdf was not extracted.");
+}
+
+static void TestGameDownloadPlanner()
+{
+    using var fixture = new TemporaryDirectory();
+    var steam = new SteamInstallation(fixture.Path, SteamInstallationKind.Native, true, true);
+    Directory.CreateDirectory(steam.ManagedScriptsPath);
+    Directory.CreateDirectory(steam.DepotCachePath);
+    Directory.CreateDirectory(steam.CommonAppsPath);
+
+    var lua = Path.Combine(steam.ManagedScriptsPath, "200.lua");
+    File.WriteAllText(lua, "addappid(200)\nsetdepotkey(201, \"aabbcc112233\")\nsetmanifestid(201, \"99901\", 1000)\nsetmanifestid(202, \"99902\", 2000)\n");
+
+    var manifestPath1 = Path.Combine(steam.DepotCachePath, "201_99901.manifest");
+    var manifestPath2 = Path.Combine(steam.DepotCachePath, "202_99902.manifest");
+    File.WriteAllText(manifestPath1, "manifest-data-1");
+    File.WriteAllText(manifestPath2, "manifest-data-2");
+
+    var game = new ManagedGame("200", "Cool Game: Edition/Linux?", lua, ["201", "202"], [manifestPath1, manifestPath2]);
+    var plan = GameDownloadPlanner.CreatePlan(steam, game);
+
+    True(plan.AppId == "200", "App ID mismatch in download plan.");
+    True(plan.InstallDirName == "Cool Game_ Edition_Linux_", "Install directory was not properly sanitized.");
+    True(plan.Depots.Count == 2, $"Expected 2 depots in plan, got {plan.Depots.Count}.");
+    True(plan.Depots[0].DepotKey == "aabbcc112233", "Depot key was not mapped in plan.");
+    True(plan.Depots[0].ManifestPath == manifestPath1, "Local manifest path was not mapped in plan.");
+}
+
+static void TestGameInstallStatus()
+{
+    using var fixture = new TemporaryDirectory();
+    var steam = new SteamInstallation(fixture.Path, SteamInstallationKind.Native, true, true);
+    Directory.CreateDirectory(steam.SteamAppsPath);
+    Directory.CreateDirectory(steam.CommonAppsPath);
+
+    var lua = Path.Combine(fixture.Path, "300.lua");
+    File.WriteAllText(lua, "addappid(300)\n");
+    var game = new ManagedGame("300", "MyGame", lua, [], []);
+
+    True(!GameInstallStatus.IsGameInstalled(steam, game), "Game should not be detected as installed initially.");
+
+    var gameDir = Path.Combine(steam.CommonAppsPath, "MyGame");
+    Directory.CreateDirectory(gameDir);
+    File.WriteAllText(Path.Combine(gameDir, "game.bin"), "binary");
+
+    var acf = Path.Combine(steam.SteamAppsPath, "appmanifest_300.acf");
+    File.WriteAllText(acf, "\"AppState\"\n{\n\t\"appid\"\t\t\"300\"\n\t\"name\"\t\t\"MyGame\"\n\t\"StateFlags\"\t\t\"4\"\n\t\"installdir\"\t\t\"MyGame\"\n}\n");
+
+    True(GameInstallStatus.IsGameInstalled(steam, game), "Game should be detected as installed when ACF StateFlags is 4 and directory exists.");
+
+    File.Delete(acf);
+    True(!GameInstallStatus.IsGameInstalled(steam, game), "Game should not be detected as installed after ACF manifest is removed, even if game directory still exists.");
 }
 
 static void True(bool condition, string message)

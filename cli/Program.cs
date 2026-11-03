@@ -1,6 +1,8 @@
 using Trionine.TOST.Core.Steam;
 using Trionine.TOST.Core.Integrations.SlsSteam;
 using Trionine.TOST.Core.Imports;
+using Trionine.TOST.Core.Downloads;
+using Trionine.TOST.Core.GameManagement;
 using System.Text.Json;
 
 if (!OperatingSystem.IsLinux())
@@ -31,6 +33,8 @@ return command switch
     "restore-slssteam" => RestoreSlsSteam(args.Skip(1).ToArray()),
     "inspect-import" => InspectImport(args.Skip(1).ToArray()),
     "import" => ImportFiles(args.Skip(1).ToArray()),
+    "games" => ListGames(args.Skip(1).ToArray()),
+    "download" => DownloadGame(args.Skip(1).ToArray()),
     "help" or "--help" or "-h" => ShowHelp(),
     _ => UnknownCommand(command)
 };
@@ -102,7 +106,135 @@ static int ShowHelp()
     Console.WriteLine("  restore-slssteam <archive-id> [--flatpak] [--apply]  Preview or restore an archive.");
     Console.WriteLine("  inspect-import <files...>  Validate supported Lua and manifest inputs without copying them.");
     Console.WriteLine("  import [--flatpak] [--apply] <files...>  Preview or import new files without overwriting.");
+    Console.WriteLine("  games [--flatpak]  List managed games and their install status.");
+    Console.WriteLine("  download <appId> [--flatpak]  Download game files from Steam CDN via DepotDownloaderMod.");
     return 0;
+}
+
+static int ListGames(string[] arguments)
+{
+    var flatpak = arguments.Any(a => a.Equals("--flatpak", StringComparison.OrdinalIgnoreCase));
+    var installations = LinuxSteamDiscovery.FindInstallations();
+    var steam = flatpak
+        ? installations.FirstOrDefault(i => i.Kind == SteamInstallationKind.Flatpak)
+        : installations.FirstOrDefault(i => i.Kind == SteamInstallationKind.Native) ?? installations.FirstOrDefault();
+
+    if (steam is null)
+    {
+        Console.Error.WriteLine("No Steam installation found.");
+        return 1;
+    }
+
+    var service = new ManagedGameService();
+    var games = service.FindManagedGames(steam);
+    Console.WriteLine($"Found {games.Count} managed games ({steam.Kind}):");
+    Console.WriteLine();
+    Console.WriteLine($"{"App ID",-10} | {"Status",-14} | Name");
+    Console.WriteLine(new string('-', 55));
+    var cachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "TOST", "steam-game-names.json");
+    Dictionary<string, string> cachedNames = [];
+    if (File.Exists(cachePath))
+    {
+        try
+        {
+            var json = File.ReadAllText(cachePath);
+            cachedNames = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? [];
+        }
+        catch { }
+    }
+
+    foreach (var game in games)
+    {
+        var installed = GameInstallStatus.IsGameInstalled(steam, game);
+        var name = !string.IsNullOrWhiteSpace(game.Name) ? game.Name : (cachedNames.TryGetValue(game.AppId, out var n) ? n : game.DisplayName);
+        Console.WriteLine($"{game.AppId,-10} | {(installed ? "Installed" : "Not Installed"),-14} | {name}");
+    }
+    return 0;
+}
+
+static int DownloadGame(string[] arguments)
+{
+    var flatpak = arguments.Any(a => a.Equals("--flatpak", StringComparison.OrdinalIgnoreCase));
+    var appId = arguments.FirstOrDefault(a => !a.StartsWith('-'));
+    if (string.IsNullOrWhiteSpace(appId))
+    {
+        Console.Error.WriteLine("Usage: tost download <appId> [--flatpak]");
+        return 2;
+    }
+
+    var installations = LinuxSteamDiscovery.FindInstallations();
+    var steam = flatpak
+        ? installations.FirstOrDefault(i => i.Kind == SteamInstallationKind.Flatpak)
+        : installations.FirstOrDefault(i => i.Kind == SteamInstallationKind.Native) ?? installations.FirstOrDefault();
+
+    if (steam is null)
+    {
+        Console.Error.WriteLine("No Steam installation found.");
+        return 1;
+    }
+
+    var service = new ManagedGameService();
+    var games = service.FindManagedGames(steam);
+    var game = games.FirstOrDefault(g => string.Equals(g.AppId, appId, StringComparison.OrdinalIgnoreCase));
+    if (game is null)
+    {
+        Console.Error.WriteLine($"App {appId} not found in managed games. Import its Lua and manifests first.");
+        return 1;
+    }
+
+    var exe = DepotDownloaderLocator.FindExecutable();
+    if (exe is null)
+    {
+        Console.Error.WriteLine($"DepotDownloaderMod not found. Place it in {DepotDownloaderLocator.GetDefaultToolDirectory()}.");
+        return 1;
+    }
+
+    var plan = GameDownloadPlanner.CreatePlan(steam, game);
+    Console.WriteLine($"Downloading {plan.GameName} (App ID: {plan.AppId})...");
+    Console.WriteLine($"Target directory: {plan.TargetDirectory}");
+    Console.WriteLine($"Depots to download: {plan.Depots.Count}");
+    foreach (var d in plan.Depots)
+    {
+        Console.WriteLine($"  - Depot {d.DepotId} (Manifest: {d.ManifestId}, Key: {(string.IsNullOrEmpty(d.DepotKey) ? "none" : "present")})");
+    }
+    Console.WriteLine();
+
+    var runner = new DepotDownloadRunner();
+    using var cancelSource = new CancellationTokenSource();
+    Console.CancelKeyPress += (sender, e) =>
+    {
+        e.Cancel = true;
+        cancelSource.Cancel();
+        Console.WriteLine("\nCanceling download...");
+    };
+
+    var lastPercent = -1.0;
+    var result = runner.DownloadAsync(
+        plan,
+        steam,
+        explicitExecutablePath: exe,
+        onProgress: p =>
+        {
+            if (p.CurrentDepotPercent != lastPercent)
+            {
+                lastPercent = p.CurrentDepotPercent;
+                Console.Write($"\rDepot {p.CurrentDepotId}: {p.CurrentDepotPercent:F1}% [Overall: {p.OverallPercent:F1}%]   ");
+            }
+        },
+        cancellationToken: cancelSource.Token).GetAwaiter().GetResult();
+
+    Console.WriteLine();
+    if (result.Success)
+    {
+        Console.WriteLine($"\nDownload completed successfully! Size on disk: {result.TotalBytesOnDisk / (1024 * 1024)} MB.");
+        Console.WriteLine("Restart Steam to play.");
+        return 0;
+    }
+    else
+    {
+        Console.Error.WriteLine($"\nDownload failed: {result.Message}");
+        return 1;
+    }
 }
 
 static int InspectConfig()

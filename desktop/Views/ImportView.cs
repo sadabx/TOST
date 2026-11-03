@@ -28,12 +28,9 @@ internal sealed class ImportView : UserControl
         previewButton.Click += Preview;
         applyButton.Click += Apply;
         confirmation.IsCheckedChanged += (_, _) => applyButton.IsEnabled = confirmation.IsChecked == true && importPlan?.CanApply == true;
-        if (OperatingSystem.IsLinux())
-        {
-            DragDrop.SetAllowDrop(output, true);
-            DragDrop.AddDragOverHandler(output, DragOver);
-            DragDrop.AddDropHandler(output, DropFiles);
-        }
+        DragDrop.SetAllowDrop(output, true);
+        DragDrop.AddDragOverHandler(output, DragOver);
+        DragDrop.AddDropHandler(output, DropFiles);
         Content = new StackPanel
         {
             Spacing = 14,
@@ -45,11 +42,6 @@ internal sealed class ImportView : UserControl
                 applyButton
             }
         };
-        if (!OperatingSystem.IsLinux())
-        {
-            output.Text = "The Avalonia importer is currently connected to the Linux backend. Windows imports remain available in the existing TOST WinForms application.";
-            chooseButton.IsEnabled = false;
-        }
     }
 
     private static void DragOver(object? sender, DragEventArgs e)

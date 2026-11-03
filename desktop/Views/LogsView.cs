@@ -27,8 +27,7 @@ internal sealed class LogsView : UserControl
                 Card("Latest bounded log", output)
             }
         };
-        if (OperatingSystem.IsLinux()) Refresh();
-        else { output.Text = "Windows OpenSteamTool log integration will be connected after its services move into TOST.Core."; installation.IsEnabled = refresh.IsEnabled = false; }
+        Refresh();
     }
 
     private void Refresh()

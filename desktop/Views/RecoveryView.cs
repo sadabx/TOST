@@ -34,8 +34,7 @@ internal sealed class RecoveryView : UserControl
                 restore
             }
         };
-        if (OperatingSystem.IsLinux()) Refresh();
-        else { status.Text = "Windows Game Manager recovery remains available in the existing frontend during migration."; installation.IsEnabled = refresh.IsEnabled = false; }
+        Refresh();
     }
 
     private bool Flatpak => installation.SelectedIndex == 1;

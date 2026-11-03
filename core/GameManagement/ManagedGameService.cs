@@ -140,6 +140,15 @@ public sealed class ManagedGameService
                     }
                 }
             }
+
+            foreach (var game in selectedGames)
+            {
+                var acf = Path.Combine(installation.SteamAppsPath, $"appmanifest_{game.AppId}.acf");
+                if (File.Exists(acf))
+                {
+                    try { File.Delete(acf); } catch { }
+                }
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {

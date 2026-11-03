@@ -6,7 +6,6 @@ namespace Trionine.TOST.Core.Configuration;
 public sealed record TostPreferences
 {
     public SteamInstallationKind PreferredSteamInstallation { get; init; } = SteamInstallationKind.Native;
-    public string WindowsSteamRoot { get; init; } = string.Empty;
     public bool OverwriteExistingFiles { get; init; } = true;
     public bool BackupFilesBeforeOverwrite { get; init; } = true;
     public bool AutomaticallyCheckForUpdates { get; init; } = true;
@@ -57,7 +56,6 @@ public sealed class TostPreferencesStore
 
     private static TostPreferences Normalize(TostPreferences settings) => settings with
     {
-        WindowsSteamRoot = settings.WindowsSteamRoot.Trim(),
         DiagnosticTailLines = Math.Clamp(settings.DiagnosticTailLines, 10, 2_000)
     };
 }

@@ -10,7 +10,6 @@ namespace Trionine.TOST.Desktop.Views;
 
 internal sealed class SettingsView : UserControl
 {
-    private readonly TextBox steamRoot = new() { MinWidth = 390 };
     private readonly ComboBox preferredInstallation = new() { MinWidth = 390 };
     private readonly CheckBox overwrite = new() { Content = "Overwrite existing files" };
     private readonly CheckBox backup = new() { Content = "Backup files before overwrite" };
@@ -25,9 +24,7 @@ internal sealed class SettingsView : UserControl
 
     public SettingsView()
     {
-        startWithDesktop.Content = OperatingSystem.IsWindows()
-            ? "Start floating installer with Windows"
-            : "Start floating installer when I sign in";
+        startWithDesktop.Content = "Start floating installer when I sign in";
 
         var save = Button("Save", primary: true);
         var cancel = Button("Cancel", primary: false);
@@ -35,28 +32,10 @@ internal sealed class SettingsView : UserControl
         cancel.Click += (_, _) => Close();
 
         var fields = new StackPanel { Spacing = 12 };
-        if (OperatingSystem.IsWindows())
-        {
-            var browse = Button("Browse", primary: false);
-            browse.Width = 74;
-            browse.Click += async (_, _) => await BrowseSteamFolderAsync();
-            fields.Children.Add(new TextBlock { Text = "Steam folder" });
-            fields.Children.Add(new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-                ColumnSpacing = 10,
-                Children = { steamRoot, browse }
-            });
-            Grid.SetColumn(browse, 1);
-            fields.Children.Add(overwrite);
-            fields.Children.Add(backup);
-        }
-        else
-        {
-            fields.Children.Add(new TextBlock { Text = "Steam installation" });
-            fields.Children.Add(preferredInstallation);
-        }
-
+        fields.Children.Add(new TextBlock { Text = "Steam installation" });
+        fields.Children.Add(preferredInstallation);
+        fields.Children.Add(overwrite);
+        fields.Children.Add(backup);
         fields.Children.Add(startWithDesktop);
         fields.Children.Add(floatingAlwaysOnTop);
         fields.Children.Add(updateChecks);
@@ -88,12 +67,6 @@ internal sealed class SettingsView : UserControl
     private void Load()
     {
         var preferences = DesktopPaths.PreferencesStore.Load();
-        steamRoot.Text = preferences.WindowsSteamRoot;
-        if (string.IsNullOrWhiteSpace(steamRoot.Text))
-        {
-            steamRoot.Text = SteamDiscovery.FindInstallations().FirstOrDefault()?.RootPath ?? string.Empty;
-        }
-
         overwrite.IsChecked = preferences.OverwriteExistingFiles;
         backup.IsChecked = preferences.BackupFilesBeforeOverwrite;
         startWithDesktop.IsChecked = preferences.StartWithDesktop;
@@ -119,26 +92,6 @@ internal sealed class SettingsView : UserControl
         }
     }
 
-    private async Task BrowseSteamFolderAsync()
-    {
-        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
-        if (storage is null)
-        {
-            return;
-        }
-
-        var folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
-        {
-            Title = "Select Steam installation folder",
-            AllowMultiple = false
-        });
-        var path = folders.FirstOrDefault()?.TryGetLocalPath();
-        if (!string.IsNullOrWhiteSpace(path))
-        {
-            steamRoot.Text = path;
-        }
-    }
-
     private void Save()
     {
         try
@@ -147,7 +100,6 @@ internal sealed class SettingsView : UserControl
             var selected = preferredInstallation.SelectedItem as SteamInstallation;
             var updated = current with
             {
-                WindowsSteamRoot = steamRoot.Text?.Trim() ?? string.Empty,
                 PreferredSteamInstallation = selected?.Kind ?? current.PreferredSteamInstallation,
                 OverwriteExistingFiles = overwrite.IsChecked == true,
                 BackupFilesBeforeOverwrite = backup.IsChecked == true,
@@ -184,7 +136,6 @@ internal sealed class SettingsView : UserControl
     private static string DisplayKind(SteamInstallationKind kind) => kind switch
     {
         SteamInstallationKind.Flatpak => "Flatpak Steam",
-        SteamInstallationKind.Windows => "Steam",
         _ => "Native Steam"
     };
 }

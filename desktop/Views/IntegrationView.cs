@@ -31,12 +31,7 @@ internal sealed class IntegrationView : UserControl
                 Card("Status and activity", output)
             }
         };
-        if (!OperatingSystem.IsLinux())
-        {
-            output.Text = "OpenSteamTool management remains in the existing Windows frontend while its platform service is extracted into TOST.Core.";
-            installation.IsEnabled = refresh.IsEnabled = installButton.IsEnabled = configureButton.IsEnabled = removeButton.IsEnabled = false;
-        }
-        else _ = RefreshAsync();
+        _ = RefreshAsync();
     }
 
     private SlsSteamPaths Paths => installation.SelectedIndex == 1 ? SlsSteamPaths.ForFlatpakUser() : SlsSteamPaths.ForCurrentUser();

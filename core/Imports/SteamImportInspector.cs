@@ -39,6 +39,9 @@ public sealed class SteamImportInspector
     private static readonly Regex SetManifestPattern = new(
         @"(?im)^[ \t]*setmanifestid\s*\(\s*(?<depot>\d+)\s*,\s*[""']?(?<manifest>\d+)[""']?\s*(?:,\s*(?<size>\d+)\s*)?\)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex SetDepotKeyPattern = new(
+        @"(?im)^[ \t]*setdepotkey\s*\(\s*(?<id>\d+)\s*,\s*[""'](?<key>[0-9a-fA-F]+)[""']\s*\)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex DepotManifestNamePattern = new(
         @"^(?<depot>\d+)_(?<manifest>\d+)\.manifest$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
@@ -68,7 +71,10 @@ public sealed class SteamImportInspector
             var appDeclarations = AddAppIdPattern.Matches(uncommentedText).Select(match =>
                 new SteamLuaAppDeclaration(match.Groups["id"].Value,
                     match.Groups["flag"].Success ? int.Parse(match.Groups["flag"].Value) : null,
-                    match.Groups["key"].Success ? match.Groups["key"].Value : null)).ToArray();
+                    match.Groups["key"].Success ? match.Groups["key"].Value : null))
+                .Concat(SetDepotKeyPattern.Matches(uncommentedText).Select(match =>
+                    new SteamLuaAppDeclaration(match.Groups["id"].Value, 1, match.Groups["key"].Value)))
+                .ToArray();
             var appIds = appDeclarations.Select(item => item.AppId)
                 .Distinct(StringComparer.Ordinal).ToArray();
             var manifestMatches = SetManifestPattern.Matches(uncommentedText);

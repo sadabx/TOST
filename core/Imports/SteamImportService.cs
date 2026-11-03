@@ -1,7 +1,8 @@
+using System.IO.Compression;
 using System.Text;
-namespace Trionine.TOST.Core.Imports;
-
 using Trionine.TOST.Core.Steam;
+
+namespace Trionine.TOST.Core.Imports;
 
 public enum SteamImportPlanState
 {
@@ -33,7 +34,8 @@ public sealed class SteamImportService
 
     public SteamImportPlan CreatePlan(SteamInstallation steam, IEnumerable<string> inputPaths)
     {
-        var items = inputPaths.Select(path =>
+        var expandedPaths = ExpandInputs(inputPaths);
+        var items = expandedPaths.Select(path =>
         {
             var inspection = inspector.Inspect(path);
             var destinationDirectory = inspection.Kind switch
@@ -61,46 +63,6 @@ public sealed class SteamImportService
             .SelectMany(item => item.Inspection.AppIds)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-
-        var importedManifests = items
-            .Where(item => item.Inspection.Kind == SteamImportKind.DepotManifest)
-            .Select(item => new SteamLuaManifestDeclaration(
-                item.Inspection.DepotIds.FirstOrDefault() ?? "",
-                item.Inspection.ManifestIds.FirstOrDefault() ?? "",
-                null))
-            .Where(item => !string.IsNullOrEmpty(item.DepotId) && !string.IsNullOrEmpty(item.ManifestId))
-            .Concat(items.Where(item => item.Inspection.Kind == SteamImportKind.Lua).SelectMany(item => item.Inspection.Manifests))
-            .GroupBy(item => item.DepotId, StringComparer.Ordinal)
-            .Select(group => group.Last())
-            .ToArray();
-
-        foreach (var appId in declaredAppIds)
-        {
-            if (explicitAppManifestIds.Contains(appId)) continue;
-            
-            // SLSsteam on Linux handles game unlocking and manifest injection natively. 
-            // Generating virtual app manifests falsely tells Steam the game is fully installed,
-            // or crashes Steam if StateFlags=2 is used. We use steam://install/ instead.
-            if (steam.Kind != SteamInstallationKind.Windows) continue;
-            
-            var destination = Path.GetFullPath(Path.Combine(steam.SteamAppsPath, $"appmanifest_{appId}.acf"));
-            var inspection = new SteamImportInspection(
-                $"virtual:appmanifest_{appId}.acf",
-                SteamImportKind.VirtualAppManifest,
-                0,
-                [appId],
-                [],
-                [],
-                [],
-                [],
-                importedManifests);
-            
-            items.Add(new SteamImportPlanItem(
-                inspection,
-                destination,
-                SteamImportPlanState.Ready,
-                null));
-        }
 
         var duplicateGroups = items
             .GroupBy(item => item.DestinationPath, StringComparer.Ordinal)
@@ -140,45 +102,17 @@ public sealed class SteamImportService
                 var temporaryPath = Path.Combine(directory, $".{Path.GetFileName(item.DestinationPath)}.tost-{Guid.NewGuid():N}.tmp");
                 try
                 {
-                    if (item.Inspection.Kind == SteamImportKind.VirtualAppManifest)
+                    using (var source = new FileStream(item.Inspection.Path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    using (var destination = new FileStream(
+                               temporaryPath,
+                               FileMode.CreateNew,
+                               FileAccess.Write,
+                               FileShare.None,
+                               81920,
+                               FileOptions.WriteThrough))
                     {
-                        var appId = item.Inspection.AppIds.First();
-                        var builder = new StringBuilder();
-                        builder.AppendLine("\"AppState\"");
-                        builder.AppendLine("{");
-                        builder.AppendLine($"\t\"appid\"\t\t\"{appId}\"");
-                        builder.AppendLine("\t\"Universe\"\t\t\"1\"");
-                        builder.AppendLine($"\t\"name\"\t\t\"{appId}\"");
-                        builder.AppendLine("\t\"StateFlags\"\t\t\"2\"");
-                        builder.AppendLine($"\t\"installdir\"\t\t\"{appId}\"");
-                        builder.AppendLine("\t\"InstalledDepots\"");
-                        builder.AppendLine("\t{");
-                        foreach (var manifest in item.Inspection.Manifests)
-                        {
-                            builder.AppendLine($"\t\t\"{manifest.DepotId}\"");
-                            builder.AppendLine("\t\t{");
-                            builder.AppendLine($"\t\t\t\"manifest\"\t\t\"{manifest.ManifestId}\"");
-                            builder.AppendLine($"\t\t\t\"size\"\t\t\"{manifest.Size ?? 0}\"");
-                            builder.AppendLine("\t\t}");
-                        }
-                        builder.AppendLine("\t}");
-                        builder.AppendLine("}");
-                        File.WriteAllText(temporaryPath, builder.ToString(), new System.Text.UTF8Encoding(false));
-                    }
-                    else
-                    {
-                        using (var source = new FileStream(item.Inspection.Path, FileMode.Open, FileAccess.Read, FileShare.Read))
-                        using (var destination = new FileStream(
-                                   temporaryPath,
-                                   FileMode.CreateNew,
-                                   FileAccess.Write,
-                                   FileShare.None,
-                                   81920,
-                                   FileOptions.WriteThrough))
-                        {
-                            source.CopyTo(destination);
-                            destination.Flush(flushToDisk: true);
-                        }
+                        source.CopyTo(destination);
+                        destination.Flush(flushToDisk: true);
                     }
 
                     File.Move(temporaryPath, item.DestinationPath, overwrite: true);
@@ -201,6 +135,47 @@ public sealed class SteamImportService
             true,
             completedDestinations.Count,
             $"Imported {completedDestinations.Count} file{(completedDestinations.Count == 1 ? string.Empty : "s")}.");
+    }
+
+    public static IReadOnlyList<string> ExpandInputs(IEnumerable<string> paths)
+    {
+        var result = new List<string>();
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path)) continue;
+            var fullPath = Path.GetFullPath(path);
+            if (!File.Exists(fullPath)) continue;
+
+            if (fullPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                var tempDir = Path.Combine(Path.GetTempPath(), $"tost-zip-{Guid.NewGuid():N}");
+                Directory.CreateDirectory(tempDir);
+                try
+                {
+                    using var archive = ZipFile.OpenRead(fullPath);
+                    foreach (var entry in archive.Entries)
+                    {
+                        if (string.IsNullOrWhiteSpace(entry.Name)) continue;
+                        var ext = Path.GetExtension(entry.Name).ToLowerInvariant();
+                        if (ext is ".lua" or ".manifest" or ".acf")
+                        {
+                            var outPath = Path.Combine(tempDir, entry.Name);
+                            entry.ExtractToFile(outPath, overwrite: true);
+                            result.Add(outPath);
+                        }
+                    }
+                }
+                catch
+                {
+                    result.Add(fullPath);
+                }
+            }
+            else
+            {
+                result.Add(fullPath);
+            }
+        }
+        return result;
     }
 
     private static void TryDelete(string path)

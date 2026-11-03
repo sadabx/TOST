@@ -81,7 +81,7 @@ public sealed class SteamDepotKeyService
         return new SteamDepotKeyWriteResult(true, backupPath, fullPath);
     }
 
-    private static VdfNode? Find(VdfNode root, params string[] path)
+    internal static VdfNode? Find(VdfNode root, params string[] path)
     {
         var current = root;
         foreach (var segment in path)
@@ -117,9 +117,9 @@ public sealed class SteamDepotKeyService
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
-    private sealed record VdfNode(string Name, int Depth, int CloseBraceIndex, List<VdfNode> Children, List<KeyValuePair<string, string>> Properties);
+    internal sealed record VdfNode(string Name, int Depth, int CloseBraceIndex, List<VdfNode> Children, List<KeyValuePair<string, string>> Properties);
 
-    private static class VdfParser
+    internal static class VdfParser
     {
         public static VdfNode Parse(string text)
         {

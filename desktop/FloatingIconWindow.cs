@@ -5,7 +5,6 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
-using Trionine.TOST.Core.Integrations.OpenSteamTool;
 using Trionine.TOST.Core.Integrations.SlsSteam;
 using Trionine.TOST.Core.Steam;
 using Trionine.TOST.Desktop.Services;
@@ -31,18 +30,14 @@ internal sealed class FloatingIconWindow : Window
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Topmost = alwaysOnTop;
         WindowStartupLocation = WindowStartupLocation.Manual;
-        Opened += (_, _) =>
+        Opened += (_, _) => PositionAtScreenCenter();
+
+        try
         {
-            PositionAtScreenCenter();
-            if (DesktopPlatform.UsesOpenSteamTool)
-            {
-                var steam = DesktopPlatform.PreferredInstallation();
-                if (steam is not null)
-                {
-                    OpenSteamToolInstallerService.EnsureTomlConfigured(steam.RootPath);
-                }
-            }
-        };
+            using var iconStream = Avalonia.Platform.AssetLoader.Open(new Uri("avares://TOST.Desktop/Assets/TOST.png"));
+            Icon = new WindowIcon(iconStream);
+        }
+        catch { }
 
         surface = new Border
         {
@@ -89,8 +84,8 @@ internal sealed class FloatingIconWindow : Window
             return;
         }
 
-        var actionTitle = DesktopPlatform.UsesOpenSteamTool ? "Apply OST" : $"Apply {DesktopPlatform.IntegrationName}";
-        if (DesktopPlatform.UsesOpenSteamTool && SteamProcessGuard.IsSteamRunning())
+        const string actionTitle = "Apply SLSsteam";
+        if (SteamProcessGuard.IsSteamRunning())
         {
             await TostDialog.ShowAsync(this, "Close Steam First", SteamProcessGuard.CloseSteamInstructions);
             return;
@@ -107,19 +102,6 @@ internal sealed class FloatingIconWindow : Window
 
         try
         {
-            if (DesktopPlatform.UsesOpenSteamTool)
-            {
-                var preferences = DesktopPaths.PreferencesStore.Load();
-                using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
-                var result = await new OpenSteamToolInstallerService(client).InstallLatestAsync(
-                    steam,
-                    preferences.OverwriteExistingFiles,
-                    preferences.BackupFilesBeforeOverwrite);
-                DesktopLog.Info(result.ToMessage());
-                await TostDialog.ShowAsync(this, actionTitle, result.ToMessage());
-                return;
-            }
-
             var paths = PathsFor(steam.Kind);
             using var slsClient = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
             var release = await new SlsSteamReleaseService(slsClient).GetLatestAsync();
@@ -221,7 +203,7 @@ internal sealed class FloatingIconWindow : Window
         menu.Items.Add(Item("Launch Steam", "\u25B7", LaunchSteam));
         menu.Items.Add(Item("Restart Steam", "\u21BB", async () => await RestartSteamAsync()));
         menu.Items.Add(new Separator());
-        menu.Items.Add(Item(DesktopPlatform.UsesOpenSteamTool ? "Apply OST" : "Apply SLSsteam", "\u21E9", async () => await InstallOrRepairIntegrationAsync()));
+        menu.Items.Add(Item("Apply SLSsteam", "\u21E9", async () => await InstallOrRepairIntegrationAsync()));
         menu.Items.Add(CreateReleasesMenu());
         menu.Items.Add(Item("Open ManifestHub", "\u25CE", () => OpenWebsite(ManifestHubUrl)));
         menu.Items.Add(CreateFolderMenu());
@@ -239,7 +221,7 @@ internal sealed class FloatingIconWindow : Window
     private MenuItem CreateReleasesMenu()
     {
         var releases = Item("Releases", "\u25CE");
-        releases.Items.Add(Item(DesktopPlatform.UsesOpenSteamTool ? "OpenSteamTool" : "SLSsteam", "\u25CE", () => OpenWebsite(DesktopPlatform.IntegrationReleasesUrl)));
+        releases.Items.Add(Item("SLSsteam", "\u25CE", () => OpenWebsite(DesktopPlatform.IntegrationReleasesUrl)));
         releases.Items.Add(Item("TOST", "\u25CE", () => OpenWebsite("https://github.com/sadabx/TOST/releases")));
         return releases;
     }
@@ -324,7 +306,7 @@ internal sealed class FloatingIconWindow : Window
     {
         var steam = DesktopPlatform.PreferredInstallation()
             ?? throw new DirectoryNotFoundException("No Steam installation was detected.");
-        var plan = new SteamRestartService().CreatePlan(steam.Kind, steamRoot: steam.RootPath);
+        var plan = new SteamRestartService().CreatePlan(steam.Kind);
         if (steam.Kind == SteamInstallationKind.Native)
         {
             var wrapper = Path.Combine(SlsSteamPaths.ForCurrentUser().DataDirectory, "path", "steam");
@@ -406,53 +388,15 @@ internal sealed class FloatingIconWindow : Window
             return;
         }
 
-        DesktopImportSummary summary;
-        if (DesktopPlatform.UsesOpenSteamTool)
+        if (SteamProcessGuard.IsSteamRunning())
         {
-            var settings = DesktopPaths.PreferencesStore.Load();
-            using var client = new HttpClient();
-            var result = new OpenSteamToolInstallerService(client).Import(
-                steam,
-                paths,
-                settings.OverwriteExistingFiles,
-                settings.BackupFilesBeforeOverwrite);
-
-            var successfulFiles = result.Files.Where(f => f.Success).Select(f => f.Name).ToList();
-            var luaCount = successfulFiles.Count(f => f.EndsWith(".lua", StringComparison.OrdinalIgnoreCase));
-            var manifestCount = successfulFiles.Count(f => f.EndsWith(".manifest", StringComparison.OrdinalIgnoreCase) ||
-                                                          f.EndsWith(".acf", StringComparison.OrdinalIgnoreCase) && f.StartsWith("appmanifest_", StringComparison.OrdinalIgnoreCase));
-            var toolCount = result.ImportedCount - luaCount - manifestCount;
-
-            summary = new DesktopImportSummary(
-                result.ImportedCount,
-                luaCount,
-                manifestCount,
-                toolCount,
-                result.Files.Where(file => !file.Success).Select(file => $"{file.Name}: {file.Error}").ToArray());
-        }
-        else
-        {
-            if (SteamProcessGuard.IsSteamRunning())
-            {
-                await TostDialog.ShowAsync(this, "Close Steam First", SteamProcessGuard.CloseSteamInstructions);
-                return;
-            }
-            summary = DesktopPlatform.ImportLinuxFiles(steam, paths);
+            await TostDialog.ShowAsync(this, "Close Steam First", SteamProcessGuard.CloseSteamInstructions);
+            return;
         }
 
+        var summary = DesktopPlatform.ImportLinuxFiles(steam, paths);
         DesktopLog.Info(summary.ToMessage());
         ShowDropToast(summary);
-
-        if (DesktopPlatform.UsesOpenSteamTool &&
-            steam is not null &&
-            !File.Exists(Path.Combine(steam.RootPath, "dwmapi.dll")) &&
-            !File.Exists(Path.Combine(steam.RootPath, "xinput1_4.dll")))
-        {
-            await TostDialog.ShowAsync(
-                this,
-                "Apply OST Required",
-                "OpenSteamTool hook (dwmapi.dll) was not found in Steam.\n\nClick 'Apply OST' in the menu so Steam can load your injected games.");
-        }
     }
 
     private void ShowDropToast(DesktopImportSummary summary)

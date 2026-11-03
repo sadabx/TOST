@@ -68,9 +68,7 @@ internal sealed record DesktopImportSummary(
         }
         else if (LuaCount > 0)
         {
-            lines.Add(OperatingSystem.IsWindows()
-                ? "Loaded into OpenSteamTool (Hot-reloaded)"
-                : "Configuration updated");
+            lines.Add("Configuration updated");
         }
         else
         {
@@ -83,27 +81,19 @@ internal sealed record DesktopImportSummary(
 
 internal static class DesktopPlatform
 {
-    public static bool UsesOpenSteamTool => OperatingSystem.IsWindows();
-    public static string IntegrationName => UsesOpenSteamTool ? "OpenSteamTool" : "SLSsteam";
-    public static string IntegrationReleasesUrl => UsesOpenSteamTool
-        ? "https://github.com/madoiscool/BetterSteamTools/releases"
-        : "https://github.com/AceSLS/SLSsteam/releases";
+    public static bool UsesOpenSteamTool => false;
+    public static string IntegrationName => "SLSsteam";
+    public static string IntegrationReleasesUrl => "https://github.com/AceSLS/SLSsteam/releases";
 
     public static IReadOnlyList<SteamInstallation> FindInstallations()
     {
-        var preferences = DesktopPaths.PreferencesStore.Load();
-        return SteamDiscovery.FindInstallations(preferences.WindowsSteamRoot);
+        return SteamDiscovery.FindInstallations();
     }
 
     public static SteamInstallation? PreferredInstallation()
     {
         var preferences = DesktopPaths.PreferencesStore.Load();
-        var installations = SteamDiscovery.FindInstallations(preferences.WindowsSteamRoot);
-        if (OperatingSystem.IsWindows())
-        {
-            return installations.FirstOrDefault();
-        }
-
+        var installations = SteamDiscovery.FindInstallations();
         return installations.FirstOrDefault(item => item.Kind == preferences.PreferredSteamInstallation)
             ?? installations.FirstOrDefault();
     }

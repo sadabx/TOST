@@ -71,8 +71,8 @@ public sealed partial class App : Application
         {
             gameManagerWindow = CreateToolWindow(
                 "TOST Game Manager",
-                760,
-                500,
+                840,
+                540,
                 new GameManagerView());
             gameManagerWindow.Closed += (_, _) => gameManagerWindow = null;
             gameManagerWindow.Show();
@@ -160,6 +160,7 @@ public sealed partial class App : Application
         var window = new Window
         {
             Title = title,
+            Icon = LoadAppIcon(),
             Width = width,
             Height = height,
             MinWidth = width,
@@ -190,24 +191,42 @@ public sealed partial class App : Application
             HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center
         };
         close.Click += (_, _) => window.Close();
+
+        var titleStack = new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            Spacing = 8,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            Margin = new Thickness(12, 0)
+        };
+        try
+        {
+            using var stream = Avalonia.Platform.AssetLoader.Open(new Uri("avares://TOST.Desktop/Assets/TOST.png"));
+            titleStack.Children.Add(new Image
+            {
+                Source = new Avalonia.Media.Imaging.Bitmap(stream),
+                Width = 18,
+                Height = 18,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            });
+        }
+        catch { }
+
+        titleStack.Children.Add(new TextBlock
+        {
+            Text = title,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            FontSize = 13,
+            Foreground = Brush.Parse("#B8C8C0"),
+            FontWeight = Avalonia.Media.FontWeight.Medium
+        });
+
         var header = new Grid
         {
             Height = 38,
             ColumnDefinitions = new ColumnDefinitions("*,Auto"),
             Background = Brush.Parse("#1C2022"),
-            Children =
-            {
-                new TextBlock
-                {
-                    Text = title,
-                    Margin = new Thickness(14, 0),
-                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                    FontSize = 13,
-                    Foreground = Brush.Parse("#B8C8C0"),
-                    FontWeight = Avalonia.Media.FontWeight.Medium
-                },
-                close
-            }
+            Children = { titleStack, close }
         };
         Grid.SetColumn(close, 1);
         header.PointerPressed += (_, args) =>
@@ -232,6 +251,19 @@ public sealed partial class App : Application
         Grid.SetRow(body, 1);
         window.Content = root;
         return window;
+    }
+
+    private static WindowIcon? LoadAppIcon()
+    {
+        try
+        {
+            using var stream = Avalonia.Platform.AssetLoader.Open(new Uri("avares://TOST.Desktop/Assets/TOST.png"));
+            return new WindowIcon(stream);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async void InstallIntegration(object? sender, EventArgs e)

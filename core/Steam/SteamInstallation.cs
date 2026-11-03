@@ -3,8 +3,7 @@ namespace Trionine.TOST.Core.Steam;
 public enum SteamInstallationKind
 {
     Native,
-    Flatpak,
-    Windows
+    Flatpak
 }
 
 public sealed record SteamInstallation(
