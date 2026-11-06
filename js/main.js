@@ -37,7 +37,7 @@ function initClipboard() {
 // Fetch latest release and wire download buttons
 async function initReleases() {
   const statusEl = document.querySelector("[data-release-status]");
-  const versionEl = document.querySelector("[data-release-version]");
+  const releaseLink = document.querySelector("[data-release-link]");
   const recommendedBtn = document.querySelector("[data-recommended-download]");
 
   try {
@@ -49,9 +49,9 @@ async function initReleases() {
     const release = await response.json();
     const assets = Array.isArray(release.assets) ? release.assets : [];
 
-    if (versionEl) {
-      versionEl.textContent = release.tag_name || "v2.0";
-      versionEl.href = release.html_url || RELEASES_PAGE;
+    if (releaseLink) {
+      releaseLink.href = release.html_url || RELEASES_PAGE;
+      releaseLink.textContent = release.tag_name || "Latest release";
     }
 
     const resolved = {};
@@ -59,10 +59,8 @@ async function initReleases() {
       const matched = assets.find((a) => pattern.test(a.name));
       if (matched && matched.browser_download_url) {
         resolved[key] = matched.browser_download_url;
-        const link = document.querySelector(`[data-asset="${key}"]`);
-        if (link) {
-          link.href = matched.browser_download_url;
-        }
+        const links = document.querySelectorAll(`[data-release-asset="${key}"], [data-asset="${key}"]`);
+        links.forEach((l) => (l.href = matched.browser_download_url));
       }
     });
 
@@ -77,7 +75,7 @@ async function initReleases() {
   } catch (err) {
     console.warn("Could not load latest GitHub release:", err);
     if (statusEl) {
-      statusEl.textContent = "Direct downloads available on GitHub Releases";
+      statusEl.textContent = "Direct downloads on GitHub Releases";
     }
   }
 }

@@ -3,46 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TOST - Open-Source Linux Steam Companion & CDN Downloader</title>
+    <title>TOST - Open-source Linux Steam tool, Game Manager &amp; CDN Downloader</title>
     <link rel="icon" type="image/png" href="assets/logo.png" />
     <meta
       name="description"
-      content="TOST is a dedicated open-source utility and Game Manager for Steam on Linux (Native & Flatpak). Features SLSsteam engine integration, drag-and-drop sideloading, and a built-in Steam CDN downloader."
+      content="Download TOST, an open-source Linux Steam utility, Game Manager, and multi-depot Steam CDN Downloader supporting Native and Flatpak Steam."
     />
     <meta
       name="keywords"
-      content="TOST, Steam Linux, SLSsteam, DepotDownloader, Steam CDN downloader, Linux Game Manager, Flatpak Steam, OpenSteamTool, sideload manifests"
+      content="TOST download, Linux Steam, SLSsteam, Steam CDN downloader, DepotDownloader, Game Manager, Flatpak Steam, AppImage, Arch Linux"
     />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://tost.trionine.com/" />
-
-    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://tost.trionine.com/" />
     <meta
       property="og:title"
-      content="TOST - Open-Source Linux Steam Companion & CDN Downloader"
+      content="TOST - Open-source Linux Steam tool, Game Manager &amp; CDN Downloader"
     />
     <meta
       property="og:description"
-      content="The dedicated Linux Steam tool: SLSsteam launch hook automation, drag-and-drop sideloading, and multi-depot CDN downloading."
+      content="A dedicated Linux Steam tool: automated SLSsteam engine integration, drag-and-drop sideloading, and multi-depot Steam CDN downloader."
     />
-    <meta property="og:image" content="https://tost.trionine.com/assets/screenshots/game-manager.png" />
+    <meta
+      property="og:image"
+      content="https://tost.trionine.com/assets/screenshots/game-manager.png"
+    />
     <meta property="og:site_name" content="TOST" />
-
-    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta
       name="twitter:title"
-      content="TOST - Open-Source Linux Steam Companion & CDN Downloader"
+      content="TOST - Open-source Linux Steam tool, Game Manager &amp; CDN Downloader"
     />
     <meta
       name="twitter:description"
-      content="The dedicated Linux Steam tool: SLSsteam launch hook automation, drag-and-drop sideloading, and multi-depot CDN downloading."
+      content="A dedicated Linux Steam tool: automated SLSsteam engine integration, drag-and-drop sideloading, and multi-depot Steam CDN downloader."
     />
-    <meta name="twitter:image" content="https://tost.trionine.com/assets/screenshots/game-manager.png" />
-
-    <!-- Schema.org -->
+    <meta
+      name="twitter:image"
+      content="https://tost.trionine.com/assets/screenshots/game-manager.png"
+    />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -53,399 +53,478 @@
         "url": "https://tost.trionine.com/",
         "downloadUrl": "https://github.com/sadabx/TOST/releases/latest",
         "image": "https://tost.trionine.com/assets/logo.png",
-        "description": "TOST is an open-source Linux Steam utility, Game Manager, and Steam CDN downloader supporting Native and Flatpak Steam."
+        "description": "TOST is an open-source Linux Steam integration manager, Game Manager, and Steam CDN downloader."
       }
     </script>
-
-    <!-- FontAwesome & Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
       crossorigin="anonymous"
     />
-
     <link rel="stylesheet" href="css/style.css" />
   </head>
-  <body>
-    <div class="bg-glow-1"></div>
-    <div class="bg-glow-2"></div>
 
-    <!-- Site Header -->
-    <header class="site-header">
-      <div class="container navbar">
-        <a href="./" class="brand" aria-label="TOST Homepage">
-          <img src="assets/logo.png" alt="TOST Logo" />
-          <span>TOST</span>
-          <span class="brand-badge">Linux</span>
-        </a>
-
-        <nav class="nav-links">
-          <a href="#features" class="nav-link">Features</a>
-          <a href="#cli" class="nav-link">CLI</a>
-          <a href="#comparison" class="nav-link">Comparison</a>
-          <a href="https://manifesthub.trionine.com/" class="nav-link" target="_blank" rel="noopener noreferrer">
-            <i class="fa-solid fa-layer-group"></i> ManifestHub
+  <body class="tost-page">
+    <!-- Navbar matching ManifestHub -->
+    <nav class="site-nav" aria-label="TOST navigation">
+      <a class="site-nav-brand" href="./" aria-label="TOST home">
+        <img src="assets/logo.png" alt="TOST logo" />
+        <span>TO<span>ST</span></span>
+      </a>
+      <div class="site-nav-right">
+        <div class="site-nav-links">
+          <a class="site-nav-link" href="#features">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Features</span>
           </a>
-          <a href="https://github.com/sadabx/TOST" class="nav-link" target="_blank" rel="noopener noreferrer">
-            <i class="fa-brands fa-github"></i> GitHub
+          <a class="site-nav-link" href="#cli">
+            <i class="fa-solid fa-terminal"></i>
+            <span>CLI</span>
           </a>
-          <a href="#downloads" class="btn-nav-action">
-            <i class="fa-solid fa-download"></i> Download
-          </a>
-        </nav>
-      </div>
-    </header>
-
-    <main>
-      <!-- Hero Section -->
-      <section class="hero container">
-        <div class="hero-pill">
-          <span class="hero-pill-indicator"></span>
-          <span>Linux First &middot; Native &amp; Flatpak Steam &middot; GPL-3.0</span>
-        </div>
-
-        <h1>
-          The Open-Source Steam Tool, Game Manager &amp; <span class="text-gradient">CDN Downloader</span>
-        </h1>
-
-        <p class="hero-lead">
-          TOST brings a lightweight floating drag-and-drop drop-target, automated <strong>SLSsteam</strong> engine management, and a built-in multi-depot Steam CDN downloader directly to Linux.
-        </p>
-
-        <!-- Quick Install Terminal Snippet -->
-        <div class="quick-install-box">
-          <i class="fa-solid fa-terminal terminal-icon"></i>
-          <code class="command-snippet">curl -sSL https://raw.githubusercontent.com/sadabx/TOST/linux-support/install.sh | bash</code>
-          <button
-            class="btn-copy"
-            data-copy="curl -sSL https://raw.githubusercontent.com/sadabx/TOST/linux-support/install.sh | bash"
-            title="Copy command"
-          >
-            <i class="fa-regular fa-copy"></i>
-            <span>Copy</span>
-          </button>
-        </div>
-
-        <div class="hero-actions">
-          <a href="#downloads" class="btn-primary">
-            <i class="fa-solid fa-download"></i> Download Packages
+          <a class="site-nav-link" href="#comparison">
+            <i class="fa-solid fa-scale-balanced"></i>
+            <span>Compare</span>
           </a>
           <a
-            href="https://github.com/sadabx/TOST"
-            class="btn-secondary"
+            class="site-nav-link"
+            href="https://manifesthub.trionine.com/"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <i class="fa-brands fa-github"></i> View Repository
+            <i class="fa-solid fa-layer-group"></i>
+            <span>ManifestHub</span>
+          </a>
+          <a
+            class="site-nav-link"
+            href="https://github.com/sadabx/TOST"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <i class="fa-brands fa-github"></i>
+            <span>Source</span>
+          </a>
+          <a class="site-nav-action" href="#downloads">
+            <i class="fa-solid fa-download"></i>
+            Download
           </a>
         </div>
-
-        <!-- Product Preview Showcase -->
-        <div class="hero-preview">
-          <div class="hero-preview-bar">
-            <div class="window-dots">
-              <span class="dot dot-red"></span>
-              <span class="dot dot-yellow"></span>
-              <span class="dot dot-green"></span>
-            </div>
-            <span class="window-title">TOST &mdash; Linux Avalonia Interface</span>
-            <div></div>
-          </div>
-          <div class="preview-grid">
-            <img src="assets/screenshots/game-manager.png" alt="TOST Game Manager" />
-            <img src="assets/screenshots/menu.png" alt="TOST Floating Menu" />
-          </div>
-        </div>
-      </section>
-
-      <!-- Key Features -->
-      <section class="section container" id="features">
-        <div class="section-header">
-          <span class="section-tag">Capabilities</span>
-          <h2 class="section-title">Engineered Specifically for Linux Steam</h2>
-          <p class="section-desc">
-            No more manual DLL extraction, broken wine prefixes, or editing complex TOML configuration files by hand.
-          </p>
-        </div>
-
-        <div class="features-grid">
-          <!-- Feature 1 -->
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="fa-solid fa-bolt"></i>
-            </div>
-            <h3>1-Click SLSsteam Engine</h3>
-            <p>
-              Right-click the floating icon and click <strong>Apply SLSsteam</strong>. TOST fetches and configures the latest official <code>libSLSsteam.so</code> runtime and launch hooks for both <strong>Native Steam</strong> and <strong>Flatpak Steam</strong>.
-            </p>
-            <span class="feature-badge"><i class="fa-solid fa-check"></i> Automated Injection</span>
-          </div>
-
-          <!-- Feature 2 -->
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="fa-solid fa-cloud-arrow-down"></i>
-            </div>
-            <h3>Built-in Steam CDN Downloader</h3>
-            <p>
-              Powered by <code>DepotDownloaderMod</code>. Download game depots directly from Steam's content servers. Features real-time network and disk speeds, dual progress bars, and ETA calculations.
-            </p>
-            <span class="feature-badge"><i class="fa-solid fa-check"></i> Multi-Depot CDN</span>
-          </div>
-
-          <!-- Feature 3 -->
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="fa-solid fa-gamepad"></i>
-            </div>
-            <h3>Steam-Style Game Manager</h3>
-            <p>
-              Browse your installed library with official high-resolution Steam cover art. Check installation status, launch games with one-click <code>▶ Play</code>, browse game folders, and uninstall cleanly.
-            </p>
-            <span class="feature-badge"><i class="fa-solid fa-check"></i> Clean Management</span>
-          </div>
-
-          <!-- Feature 4 -->
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="fa-solid fa-arrow-down-up-across-line"></i>
-            </div>
-            <h3>Drag-and-Drop Sideloading</h3>
-            <p>
-              Drop <code>.zip</code>, <code>.lua</code>, or <code>.manifest</code> files straight onto the floating widget. TOST automatically routes manifests to <code>depotcache/</code>, Lua scripts to <code>stplug-in/</code>, and registers keys in <code>config.vdf</code>.
-            </p>
-            <span class="feature-badge"><i class="fa-solid fa-check"></i> Safe Directory Routing</span>
-          </div>
-
-          <!-- Feature 5 -->
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="fa-solid fa-shield-halved"></i>
-            </div>
-            <h3>Atomic Backups &amp; Rollback</h3>
-            <p>
-              TOST never blindly writes over your Steam files. All config edits, key merges, and launch modifications create atomic backups so you can revert anytime with zero risk.
-            </p>
-            <span class="feature-badge"><i class="fa-solid fa-check"></i> Non-Destructive</span>
-          </div>
-
-          <!-- Feature 6 -->
-          <div class="feature-card">
-            <div class="feature-icon">
-              <i class="fa-solid fa-terminal"></i>
-            </div>
-            <h3>Headless Linux CLI (<code>tost</code>)</h3>
-            <p>
-              Prefer the terminal or scripting on your Steam Deck? TOST includes a dedicated standalone CLI to manage games, install engines, trigger downloads, and tail diagnostic logs headlessly.
-            </p>
-            <span class="feature-badge"><i class="fa-solid fa-check"></i> Scripting Friendly</span>
-          </div>
-        </div>
-
-        <!-- CLI Spotlight Banner -->
-        <div class="cli-spotlight" id="cli">
-          <div class="cli-info">
-            <span class="section-tag">Command Line Interface</span>
-            <h3>Total Terminal Control</h3>
-            <p>
-              Everything you can do in the GUI is fully scriptable using the standalone <code>tost</code> executable. Perfect for headless setups, SSH sessions, and custom Steam Deck scripts.
-            </p>
-            <ul class="cli-features-list">
-              <li><i class="fa-solid fa-circle-check"></i> <code>tost status</code> &mdash; Inspect Steam installations</li>
-              <li><i class="fa-solid fa-circle-check"></i> <code>tost install-slssteam</code> &mdash; Fetch &amp; configure hooks</li>
-              <li><i class="fa-solid fa-circle-check"></i> <code>tost import &lt;archive.zip&gt;</code> &mdash; Batch install manifests</li>
-              <li><i class="fa-solid fa-circle-check"></i> <code>tost download &lt;appId&gt;</code> &mdash; Steam CDN download</li>
-            </ul>
-          </div>
-          <div class="terminal-window">
-            <div class="terminal-header">
-              <span class="dot dot-red"></span>
-              <span class="dot dot-yellow"></span>
-              <span class="dot dot-green"></span>
-              <span>bash &mdash; tost@linux</span>
-            </div>
-            <div class="terminal-body">
-              <p><span class="t-prompt">$</span> <span class="t-cmd">tost status</span></p>
-              <p class="t-comment">[INFO] Native Steam: Installed (~/.local/share/Steam)</p>
-              <p class="t-comment">[INFO] SLSsteam Engine: Active (libSLSsteam.so)</p>
-              <br />
-              <p><span class="t-prompt">$</span> <span class="t-cmd">tost import ./game_manifest.zip --apply</span></p>
-              <p class="t-success">[SUCCESS] Unpacked 3 manifests, merged 2 depot keys into config.vdf</p>
-              <br />
-              <p><span class="t-prompt">$</span> <span class="t-cmd">tost download 1245620</span></p>
-              <p class="t-comment">[DEPOT] Downloading Depot 1245621: 4.8 GB / 12.4 GB (45 MB/s) [ETA: 02:45]</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Downloads Section -->
-      <section class="section container" id="downloads">
-        <div class="section-header">
-          <span class="section-tag">Get Started</span>
-          <h2 class="section-title">Download TOST for Linux</h2>
-          <p class="section-desc">
-            Universal AppImage, native packages for Arch and Debian, or standalone portable archive.
-          </p>
-        </div>
-
-        <div class="downloads-panel">
-          <div class="recommended-box">
-            <p>Recommended for most Linux distributions:</p>
-            <a
-              href="https://github.com/sadabx/TOST/releases/latest"
-              class="btn-recommended"
-              data-recommended-download
-            >
-              <i class="fa-solid fa-file-arrow-down"></i>
-              <span>Download Linux AppImage (x64)</span>
-            </a>
-          </div>
-
-          <p style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 16px;">
-            Or choose your preferred distribution package:
-          </p>
-
-          <div class="packages-grid">
-            <a
-              href="https://github.com/sadabx/TOST/releases/latest"
-              class="pkg-card"
-              data-asset="appimage"
-            >
-              <i class="fa-solid fa-cube pkg-icon"></i>
-              <span class="pkg-title">AppImage</span>
-              <span class="pkg-sub">Universal x64</span>
-            </a>
-            <a
-              href="https://github.com/sadabx/TOST/releases/latest"
-              class="pkg-card"
-              data-asset="arch"
-            >
-              <i class="fa-brands fa-arch-linux pkg-icon"></i>
-              <span class="pkg-title">Arch Package</span>
-              <span class="pkg-sub">.pkg.tar.zst</span>
-            </a>
-            <a
-              href="https://github.com/sadabx/TOST/releases/latest"
-              class="pkg-card"
-              data-asset="deb"
-            >
-              <i class="fa-brands fa-debian pkg-icon"></i>
-              <span class="pkg-title">Debian / Ubuntu</span>
-              <span class="pkg-sub">.deb</span>
-            </a>
-            <a
-              href="https://github.com/sadabx/TOST/releases/latest"
-              class="pkg-card"
-              data-asset="portable"
-            >
-              <i class="fa-solid fa-file-zipper pkg-icon"></i>
-              <span class="pkg-title">Portable Archive</span>
-              <span class="pkg-sub">.tar.gz</span>
-            </a>
-          </div>
-
-          <div class="release-status-meta">
-            <i class="fa-solid fa-tag"></i>
-            <span>Latest: <a href="https://github.com/sadabx/TOST/releases/latest" data-release-version style="color: var(--accent); text-decoration: none;">Fetching&hellip;</a></span>
-            <span>&middot;</span>
-            <span data-release-status>Checking GitHub Releases&hellip;</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Comparison Section -->
-      <section class="section container" id="comparison">
-        <div class="section-header">
-          <span class="section-tag">Transparency</span>
-          <h2 class="section-title">How TOST Compares</h2>
-          <p class="section-desc">
-            Open-source, inspectable, and built specifically around the Linux ecosystem.
-          </p>
-        </div>
-
-        <div class="comparison-wrap">
-          <table class="table-comparison">
-            <thead>
-              <tr>
-                <th>Feature</th>
-                <th>TOST (Linux)</th>
-                <th>Manual SLSsteam</th>
-                <th>LuaTools / Windows Tools</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Primary Platform</strong></td>
-                <td class="positive">Linux (Native &amp; Flatpak)</td>
-                <td>Linux</td>
-                <td class="negative">Windows Only</td>
-              </tr>
-              <tr>
-                <td><strong>Setup Method</strong></td>
-                <td class="positive">1-Click Apply button or <code>tost install-slssteam</code></td>
-                <td class="negative">Manual terminal commands &amp; editing steam.sh</td>
-                <td>Windows installer / Millennium plugin</td>
-              </tr>
-              <tr>
-                <td><strong>Steam CDN Downloader</strong></td>
-                <td class="positive">Built-in (Multi-depot speed, ETA, queue)</td>
-                <td class="negative">None (requires 3rd party tools)</td>
-                <td>Separate DepotDownloader launcher</td>
-              </tr>
-              <tr>
-                <td><strong>Game Manager</strong></td>
-                <td class="positive">Avalonia UI with Steam artwork &amp; 1-click play</td>
-                <td class="negative">None</td>
-                <td>WPF table view</td>
-              </tr>
-              <tr>
-                <td><strong>Headless CLI</strong></td>
-                <td class="positive">Yes (<code>tost</code> CLI)</td>
-                <td class="negative">Partial bash scripts</td>
-                <td class="negative">None</td>
-              </tr>
-              <tr>
-                <td><strong>Transparency</strong></td>
-                <td class="positive">100% Open-Source (GPL-3.0)</td>
-                <td class="positive">100% Open-Source</td>
-                <td>Mixed</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
-
-    <!-- Site Footer -->
-    <footer class="site-footer">
-      <div class="container footer-inner">
-        <div class="footer-brand">
-          <img src="assets/logo.png" alt="TOST Logo" />
-          <span>TOST &mdash; Tools of Steam</span>
-        </div>
-        <div class="footer-links">
-          <a href="https://manifesthub.trionine.com/" class="footer-link" target="_blank" rel="noopener noreferrer">ManifestHub</a>
-          <a href="https://github.com/sadabx/TOST" class="footer-link" target="_blank" rel="noopener noreferrer">Source Code</a>
-          <a href="https://github.com/sadabx/TOST/issues" class="footer-link" target="_blank" rel="noopener noreferrer">Issues</a>
-          <a href="https://github.com/sadabx/TOST/releases" class="footer-link" target="_blank" rel="noopener noreferrer">Releases</a>
-          <a href="https://discord.com/invite/x6AjUMngpF" class="footer-link" target="_blank" rel="noopener noreferrer">Discord</a>
-        </div>
       </div>
-      <div class="container footer-disclaimer">
-        <p>
-          &copy; 2026 TRIONINE &middot; TOST is licensed under GPL-3.0.<br />
-          This project is for research and educational purposes only. TOST is not affiliated with, endorsed by, or connected to Valve, Steam, or SLSsteam. Steam is a trademark of Valve Corporation.
-        </p>
+    </nav>
+
+    <div class="tost-shell">
+      <main>
+        <!-- Hero Section -->
+        <section class="tost-hero" aria-labelledby="tost-title">
+          <div class="tost-hero-logo">
+            <img src="assets/logo.png" alt="TOST logo" />
+            <h1 id="tost-title">TO<span>ST</span></h1>
+          </div>
+          <p class="tost-kicker">Open-source Linux Steam tool, Game Manager &amp; CDN Downloader</p>
+          <p class="tost-intro">
+            The dedicated open-source companion for Steam on Linux: automated SLSsteam engine integration, drag-and-drop sideloading, and multi-depot Steam CDN downloads.
+          </p>
+          <p class="tost-source-note">
+            <i class="fa-brands fa-github" aria-hidden="true"></i>
+            GPL-3.0 licensed &mdash; inspect the source, report issues, or build it yourself.
+          </p>
+
+          <div class="tost-meta" aria-label="Platform details">
+            <span><i class="fa-brands fa-linux"></i> Linux x64 (Native &amp; Flatpak)</span>
+            <span><i class="fa-solid fa-bolt"></i> SLSsteam Engine</span>
+            <span><i class="fa-solid fa-cloud-arrow-down"></i> Steam CDN Downloader</span>
+            <span><i class="fa-solid fa-code-branch"></i> Open source</span>
+          </div>
+
+          <!-- Quick Terminal Install Command -->
+          <div class="tost-install-bar">
+            <code class="tost-install-code">curl -sSL https://raw.githubusercontent.com/sadabx/TOST/linux-support/install.sh | bash</code>
+            <button
+              class="tost-copy-btn"
+              data-copy="curl -sSL https://raw.githubusercontent.com/sadabx/TOST/linux-support/install.sh | bash"
+              title="Copy to clipboard"
+            >
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy</span>
+            </button>
+          </div>
+
+          <div class="tost-hero-actions">
+            <a class="tost-button btn-primary" href="#downloads">
+              <i class="fa-solid fa-download"></i>
+              Get TOST
+            </a>
+            <a
+              class="tost-button btn-secondary"
+              href="https://github.com/sadabx/TOST"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <i class="fa-brands fa-github"></i>
+              View source
+            </a>
+          </div>
+
+          <figure class="tost-product-shot">
+            <div class="tost-product-image">
+              <img
+                src="assets/screenshots/menu.png"
+                alt="TOST menu interface"
+                width="580"
+                height="566"
+              />
+              <span>Menu</span>
+            </div>
+            <div class="tost-product-image">
+              <img
+                src="assets/screenshots/game-manager.png"
+                alt="TOST the game manager"
+                width="867"
+                height="586"
+              />
+              <span>Game Manager</span>
+            </div>
+          </figure>
+        </section>
+
+        <!-- Features Section -->
+        <section class="tost-section" id="features" aria-labelledby="features-title">
+          <div class="tost-section-heading">
+            <span class="tost-eyebrow">Capabilities</span>
+            <h2 id="features-title">Engineered Specifically for Linux Steam</h2>
+            <p>
+              Built from the ground up for Linux gamers. Supports both standard distribution installations and Flatpak Steam with atomic file operations.
+            </p>
+          </div>
+
+          <div class="tost-features-grid">
+            <div class="tost-feature-card">
+              <div class="tost-feature-icon">
+                <i class="fa-solid fa-bolt"></i>
+              </div>
+              <h3>1-Click SLSsteam Engine</h3>
+              <p>
+                Right-click the floating icon and select <strong>Apply SLSsteam</strong>. TOST fetches and configures the latest official <code>libSLSsteam.so</code> runtime and launch hooks for Native and Flatpak Steam.
+              </p>
+              <span class="tost-feature-tag"><i class="fa-solid fa-check"></i> Automated Injection</span>
+            </div>
+
+            <div class="tost-feature-card">
+              <div class="tost-feature-icon">
+                <i class="fa-solid fa-cloud-arrow-down"></i>
+              </div>
+              <h3>Built-in Steam CDN Downloader</h3>
+              <p>
+                Integrated with <code>DepotDownloaderMod</code>. Directly downloads game depots from Steam CDN with real-time transfer speeds, dual progress bars, and ETA calculations.
+              </p>
+              <span class="tost-feature-tag"><i class="fa-solid fa-check"></i> Multi-Depot Downloads</span>
+            </div>
+
+            <div class="tost-feature-card">
+              <div class="tost-feature-icon">
+                <i class="fa-solid fa-gamepad"></i>
+              </div>
+              <h3>Steam-Style Game Manager</h3>
+              <p>
+                Browse your library with official Steam box art, check installation state, launch with one-click <code>▶ Play</code>, open game directories, and uninstall cleanly.
+              </p>
+              <span class="tost-feature-tag"><i class="fa-solid fa-check"></i> Clean Library Manager</span>
+            </div>
+
+            <div class="tost-feature-card">
+              <div class="tost-feature-icon">
+                <i class="fa-solid fa-arrow-down-up-across-line"></i>
+              </div>
+              <h3>Drag-and-Drop Sideloading</h3>
+              <p>
+                Drop <code>.zip</code>, <code>.lua</code>, or <code>.manifest</code> files onto the floating widget. TOST unpacks and routes manifests to <code>depotcache/</code>, Lua scripts to <code>stplug-in/</code>, and registers keys in <code>config.vdf</code>.
+              </p>
+              <span class="tost-feature-tag"><i class="fa-solid fa-check"></i> Safe Directory Routing</span>
+            </div>
+
+            <div class="tost-feature-card">
+              <div class="tost-feature-icon">
+                <i class="fa-solid fa-shield-halved"></i>
+              </div>
+              <h3>Atomic Backups &amp; Rollback</h3>
+              <p>
+                TOST never blindly modifies your Steam configuration. All key merges and launch file adjustments generate atomic backups so you can revert anytime with zero risk.
+              </p>
+              <span class="tost-feature-tag"><i class="fa-solid fa-check"></i> Safe &amp; Non-Destructive</span>
+            </div>
+
+            <div class="tost-feature-card">
+              <div class="tost-feature-icon">
+                <i class="fa-solid fa-terminal"></i>
+              </div>
+              <h3>Headless Linux CLI (<code>tost</code>)</h3>
+              <p>
+                Full terminal automation. Manage games, install engines, trigger CDN downloads, and tail diagnostic logs headlessly &mdash; perfect for Steam Deck desktop or terminal workflows.
+              </p>
+              <span class="tost-feature-tag"><i class="fa-solid fa-check"></i> Script &amp; Terminal Friendly</span>
+            </div>
+          </div>
+
+          <!-- CLI Spotlight Terminal Box -->
+          <div class="tost-cli-box" id="cli">
+            <div class="tost-cli-header">
+              <i class="fa-solid fa-terminal" style="color: var(--tost-green)"></i>
+              <span>Terminal CLI &mdash; tost</span>
+            </div>
+            <div class="tost-cli-body">
+              <p><span class="tost-cli-prompt">$</span> tost status</p>
+              <p class="tost-cli-comment">[INFO] Native Steam: Installed (~/.local/share/Steam)</p>
+              <p class="tost-cli-comment">[INFO] SLSsteam Engine: Active (libSLSsteam.so)</p>
+              <br />
+              <p><span class="tost-cli-prompt">$</span> tost import ./game_manifest.zip --apply</p>
+              <p style="color: var(--tost-green)">[SUCCESS] Unpacked 3 manifests, merged 2 depot keys into config.vdf</p>
+              <br />
+              <p><span class="tost-cli-prompt">$</span> tost download 1245620</p>
+              <p class="tost-cli-comment">[DEPOT] Downloading Depot 1245621: 4.8 GB / 12.4 GB (45 MB/s) [ETA: 02:45]</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Downloads Section -->
+        <section
+          class="tost-section"
+          id="downloads"
+          aria-labelledby="downloads-title"
+        >
+          <div class="tost-download-panel">
+            <div class="tost-download-title-row">
+              <h2 id="downloads-title">Download</h2>
+              <img src="assets/logo.png" alt="TOST Logo" />
+            </div>
+
+            <!-- Recommended Box -->
+            <div class="tost-recommended-download">
+              <p data-recommendation-copy>
+                Recommended for Linux x64 distributions:
+              </p>
+              <a
+                class="tost-recommended-button"
+                data-recommended-download
+                href="https://github.com/sadabx/TOST/releases/latest"
+              >
+                <i class="fa-solid fa-download" aria-hidden="true"></i>
+                <strong data-recommended-label>Download Linux AppImage</strong>
+              </a>
+            </div>
+
+            <p class="tost-other-downloads">All Linux x64 Packages</p>
+            <div class="tost-platform-grid">
+              <!-- Universal AppImage -->
+              <article class="tost-platform-card is-detected">
+                <div class="tost-platform-heading">
+                  <i class="fa-brands fa-linux" aria-hidden="true"></i>
+                  <div>
+                    <h3>Universal Linux</h3>
+                    <span>x64</span>
+                  </div>
+                  <span class="tost-detected-platform">Universal</span>
+                </div>
+                <p>
+                  Standalone executable that runs on virtually any modern Linux distribution without installing dependencies.
+                </p>
+                <div class="tost-platform-downloads">
+                  <a
+                    data-release-asset="appimage"
+                    href="https://github.com/sadabx/TOST/releases/latest"
+                  >
+                    <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i>
+                    AppImage (x64)
+                  </a>
+                  <a
+                    data-release-asset="portable"
+                    href="https://github.com/sadabx/TOST/releases/latest"
+                  >
+                    <i class="fa-solid fa-file-zipper" aria-hidden="true"></i>
+                    Portable tar.gz
+                  </a>
+                </div>
+              </article>
+
+              <!-- Native Distro Packages -->
+              <article class="tost-platform-card">
+                <div class="tost-platform-heading">
+                  <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+                  <div>
+                    <h3>Distribution Packages</h3>
+                    <span>Native</span>
+                  </div>
+                  <span class="tost-detected-platform">Package</span>
+                </div>
+                <p>
+                  Pre-built packages for your distribution package manager for native system updates and menu entries.
+                </p>
+                <div class="tost-platform-downloads">
+                  <a
+                    data-release-asset="arch"
+                    href="https://github.com/sadabx/TOST/releases/latest"
+                  >
+                    <i class="fa-brands fa-arch-linux" aria-hidden="true"></i>
+                    Arch Linux (.pkg.tar.zst)
+                  </a>
+                  <a
+                    data-release-asset="deb"
+                    href="https://github.com/sadabx/TOST/releases/latest"
+                  >
+                    <i class="fa-brands fa-debian" aria-hidden="true"></i>
+                    Debian / Ubuntu (.deb)
+                  </a>
+                </div>
+              </article>
+            </div>
+
+            <div class="tost-release-meta" aria-live="polite">
+              <a
+                data-release-link
+                href="https://github.com/sadabx/TOST/releases/latest"
+                >Latest release</a
+              >
+              <span data-release-status>Verified from GitHub Releases</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Comparison Section -->
+        <section
+          class="tost-section"
+          id="comparison"
+          aria-labelledby="comparison-title"
+        >
+          <div class="tost-section-heading">
+            <span class="tost-eyebrow">Publicly verifiable differences</span>
+            <h2 id="comparison-title">Why choose TOST on Linux?</h2>
+            <p>
+              TOST favors inspectable open-source code, automated safety backups, and native Linux integration instead of closed-source Windows workarounds.
+            </p>
+          </div>
+          <div class="tost-comparison-wrap">
+            <table class="tost-comparison">
+              <thead>
+                <tr>
+                  <th scope="col">Feature</th>
+                  <th scope="col">TOST (Linux)</th>
+                  <th scope="col">Manual SLSsteam</th>
+                  <th scope="col">SteamTools (Legacy)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">What it is</th>
+                  <td class="positive">Open-source Linux manager, SLSsteam injector &amp; CDN downloader</td>
+                  <td>Underlying Linux C++ hooking engine</td>
+                  <td class="negative">Closed-source abandoned Windows tool</td>
+                </tr>
+                <tr>
+                  <th scope="row">Platform support</th>
+                  <td class="positive">Linux (Native &amp; Flatpak Steam)</td>
+                  <td>Linux</td>
+                  <td class="negative">Windows only</td>
+                </tr>
+                <tr>
+                  <th scope="row">Transparency</th>
+                  <td class="positive">100% Open-source (GPL-3.0)</td>
+                  <td class="positive">100% Open-source</td>
+                  <td class="negative">Closed-source / Unknown binaries</td>
+                </tr>
+                <tr>
+                  <th scope="row">How to install engine</th>
+                  <td class="positive">
+                    Right-click floating icon &rarr; <strong>Apply SLSsteam</strong> (or run <code>tost install-slssteam</code>)
+                  </td>
+                  <td class="negative">Manual terminal commands &amp; editing steam launch scripts</td>
+                  <td>Installer wizard (Windows only)</td>
+                </tr>
+                <tr>
+                  <th scope="row">Steam CDN Downloader</th>
+                  <td class="positive">
+                    Built-in multi-depot downloader with live speeds, dual progress, and ETA
+                  </td>
+                  <td class="negative">None (requires separate tools)</td>
+                  <td class="negative">None</td>
+                </tr>
+                <tr>
+                  <th scope="row">Game Manager</th>
+                  <td class="positive">
+                    Avalonia UI with official Steam grid art, install detection, 1-click Play, and uninstall
+                  </td>
+                  <td class="negative">None</td>
+                  <td>Basic list view</td>
+                </tr>
+                <tr>
+                  <th scope="row">When Steam updates</th>
+                  <td class="positive">
+                    Simply click <strong>Apply SLSsteam</strong> again &mdash; automatic recovery and re-injection
+                  </td>
+                  <td>Manually re-apply script modifications</td>
+                  <td class="negative">Frequently broke, no longer maintained</td>
+                </tr>
+                <tr>
+                  <th scope="row">Safety &amp; Privacy</th>
+                  <td class="positive">
+                    Automatic backups of all edited configs; only touches files on explicit user action
+                  </td>
+                  <td>Inspectable C++ runtime</td>
+                  <td class="negative">
+                    Reported telemetry and remote execution backdoors in older versions
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="tost-note">
+            TOST is an independent Trionine open-source project. It is not affiliated with, endorsed by, or connected to Valve, Steam, or SLSsteam. Steam is a trademark of Valve Corporation.
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <!-- Footer matching ManifestHub -->
+    <footer class="tost-footer">
+      <div class="tost-shell tost-footer-inner">
+        <span>&copy; 2026 TRIONINE &middot; TOST (GPL-3.0)</span>
+        <div class="tost-footer-links">
+          <a href="https://manifesthub.trionine.com/" target="_blank" rel="noopener noreferrer">ManifestHub</a>
+          <a
+            href="https://github.com/sadabx/TOST"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Source</a
+          >
+          <a
+            href="https://github.com/sadabx/TOST/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Issues</a
+          >
+          <a
+            href="https://github.com/sadabx/TOST/releases/latest"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Releases</a
+          >
+        </div>
       </div>
     </footer>
 
-    <script src="js/main.js"></script>
+    <!-- Floating Discord Shortcut -->
+    <div class="floating-sidebar">
+      <a
+        href="https://discord.com/invite/x6AjUMngpF"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="floating-btn"
+        title="Discord"
+        aria-label="Join our Discord community"
+      >
+        <i class="fa-brands fa-discord"></i>
+        <span>Discord</span>
+      </a>
+    </div>
+
+    <script src="js/main.js" defer></script>
   </body>
 </html>
