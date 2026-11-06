@@ -1000,3 +1000,29 @@ button, input, select, textarea {
     flex-direction: column;
   }
 }
+
+/* Toast Notification */
+.tost-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 2000;
+  background: #161b22;
+  border: 1px solid #303841;
+  border-left: 4px solid var(--tost-green);
+  color: var(--tost-text);
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.tost-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}

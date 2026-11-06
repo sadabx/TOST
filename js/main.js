@@ -1,8 +1,12 @@
 const GITHUB_REPO = "sadabx/TOST";
 const TOST_RELEASE_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 const TOST_RELEASE_PAGE = `https://github.com/${GITHUB_REPO}/releases/latest`;
+const WORKER_URL = "https://manifesthub-bridge.trionine.workers.dev/";
 
-// Extended patterns to dynamically handle Windows and Linux assets
+// Debounce: ignore repeated tracking signals for the same asset within 30s
+const TRACK_DEBOUNCE_MS = 30_000;
+
+// Asset pattern matching
 const assetPatterns = {
   "win-setup": /^TOST-.*win.*-Setup\.exe$/i,
   "win-portable": /^TOST-.*win.*-Portable\.zip$/i,
@@ -12,7 +16,46 @@ const assetPatterns = {
   deb: /^tost_[\w.-]+_amd64\.deb$/i,
 };
 
-// Clipboard copy helper
+// ---- Download Tracking via Cloudflare Worker ----
+
+function trackTostDownload(assetType, assetName) {
+  const now = Date.now();
+  const debounceMap = JSON.parse(sessionStorage.getItem("_tost_dm") || "{}");
+
+  if (debounceMap[assetType] && now - debounceMap[assetType] < TRACK_DEBOUNCE_MS) return;
+
+  debounceMap[assetType] = now;
+  sessionStorage.setItem("_tost_dm", JSON.stringify(debounceMap));
+
+  const params = new URLSearchParams({
+    tost_download: assetType,
+    asset_name: assetName || assetType,
+  });
+
+  fetch(`${WORKER_URL}?${params}`, { method: "GET", mode: "no-cors" }).catch((err) =>
+    console.error("TOST tracking error:", err)
+  );
+}
+
+// ---- Toast Notification ----
+
+function showToast(message) {
+  let toast = document.querySelector(".tost-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.className = "tost-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add("show");
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 3500);
+}
+
+// ---- Clipboard Copy Helper ----
+
 function initClipboard() {
   const copyButtons = document.querySelectorAll("[data-copy]");
   copyButtons.forEach((btn) => {
@@ -25,6 +68,7 @@ function initClipboard() {
         const originalText = btn.innerHTML;
         btn.classList.add("copied");
         btn.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
+        showToast("Copied install command to clipboard!");
         setTimeout(() => {
           btn.classList.remove("copied");
           btn.innerHTML = originalText;
@@ -36,7 +80,8 @@ function initClipboard() {
   });
 }
 
-// Platform Detection
+// ---- Platform Detection ----
+
 async function detectPlatform() {
   if (navigator.userAgentData) {
     try {
@@ -56,6 +101,18 @@ async function detectPlatform() {
   if (ua.includes("linux") && !ua.includes("android")) return "linux";
 
   return "unsupported";
+}
+
+function verifyAssetUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname === "github.com" &&
+      parsed.pathname.startsWith(`/sadabx/TOST/releases/download/`)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function updateRecommendation(platform, resolvedAssets) {
@@ -92,7 +149,39 @@ function updateRecommendation(platform, resolvedAssets) {
   link.href = TOST_RELEASE_PAGE;
 }
 
-// Fetch latest release and wire download buttons
+// ---- Attach Download Tracking ----
+
+function attachDownloadTracking() {
+  document.querySelectorAll("[data-release-asset]").forEach((link) => {
+    link.addEventListener("click", () => {
+      const assetType = link.dataset.releaseAsset;
+      const fileName = link.href.split("/").pop() || assetType;
+      trackTostDownload(assetType, fileName);
+      showToast(`Starting download: ${fileName}`);
+    });
+  });
+
+  const recommendedBtn = document.querySelector("[data-recommended-download]");
+  if (recommendedBtn) {
+    recommendedBtn.addEventListener("click", () => {
+      const href = recommendedBtn.href || "";
+      let assetType = "recommended";
+      for (const [key, pattern] of Object.entries(assetPatterns)) {
+        const fileName = href.split("/").pop() || "";
+        if (pattern.test(fileName)) {
+          assetType = key;
+          break;
+        }
+      }
+      const fileName = href.split("/").pop() || "TOST";
+      trackTostDownload(assetType, fileName);
+      showToast(`Starting download: ${fileName}`);
+    });
+  }
+}
+
+// ---- Release Loader ----
+
 async function loadRelease() {
   const platform = await detectPlatform();
   const statusEl = document.querySelector("[data-release-status]");
@@ -110,7 +199,7 @@ async function loadRelease() {
 
     Object.entries(assetPatterns).forEach(([key, pattern]) => {
       const asset = assets.find((candidate) => pattern.test(candidate.name));
-      if (asset?.browser_download_url) {
+      if (asset?.browser_download_url && verifyAssetUrl(asset.browser_download_url)) {
         resolved[key] = asset.browser_download_url;
         const link = document.querySelector(`[data-release-asset="${key}"]`);
         if (link) link.href = asset.browser_download_url;
@@ -122,13 +211,15 @@ async function loadRelease() {
       releaseLink.textContent = release.tag_name || "Latest release";
     }
 
-    if (statusEl) statusEl.textContent = "Verified from GitHub Releases";
+    if (statusEl) statusEl.textContent = "Downloads verified from GitHub";
     updateRecommendation(platform, resolved);
   } catch (error) {
     console.warn("Release fetch failed:", error);
     if (statusEl) statusEl.textContent = "Direct downloads on GitHub Releases";
     updateRecommendation(platform, {});
   }
+
+  attachDownloadTracking();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
