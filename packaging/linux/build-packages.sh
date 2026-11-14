@@ -32,11 +32,11 @@ cp "$repo_root/docs/logo.png" "$appdir/tost.png"
 ln -s usr/bin/tost "$appdir/AppRun"
 
 appimagetool="${APPIMAGETOOL:-}"
-if [[ -z "$appimagetool" || ! -x "$appimagetool" ]]; then
-  echo "APPIMAGETOOL must point to an executable appimagetool" >&2
-  exit 1
+if [[ -n "$appimagetool" && -x "$appimagetool" ]]; then
+  ARCH=x86_64 VERSION="$version" APPIMAGE_EXTRACT_AND_RUN=1 "$appimagetool" --no-appstream "$appdir" "$output_dir/TOST-${version}-x86_64.AppImage"
+else
+  echo "Warning: APPIMAGETOOL not set or not executable; skipping AppImage build." >&2
 fi
-ARCH=x86_64 VERSION="$version" APPIMAGE_EXTRACT_AND_RUN=1 "$appimagetool" --no-appstream "$appdir" "$output_dir/TOST-${version}-x86_64.AppImage"
 
 pkgroot="$work_dir/arch-root"
 install -Dm755 "$desktop_dir/TOST.Desktop" "$pkgroot/usr/bin/tost"
@@ -81,7 +81,7 @@ fi
   for item in *; do
     [[ -e "$item" ]] && arch_files+=("$item")
   done
-  tar --zstd --numeric-owner --owner=0 --group=0 -cf "$output_dir/tost-${version}-1-x86_64.pkg.tar.zst" "${arch_files[@]}"
+  tar --zstd --numeric-owner --owner=0 --group=0 -cf "$output_dir/tost-${arch_version}-1-x86_64.pkg.tar.zst" "${arch_files[@]}"
 )
 
 debroot="$work_dir/debian-root"
@@ -102,6 +102,10 @@ Depends: libc6 (>= 2.35), libfontconfig1, libfreetype6, libglib2.0-0, libgtk-3-0
 Description: TOST Steam integration manager
  Manage TOST Steam integrations on Linux.
 EOF
-dpkg-deb --build --root-owner-group "$debroot" "$output_dir/tost_${deb_version}_amd64.deb"
+if command -v dpkg-deb >/dev/null 2>&1; then
+  dpkg-deb --build --root-owner-group "$debroot" "$output_dir/tost_${deb_version}_amd64.deb"
+else
+  echo "Warning: dpkg-deb not found; skipping Debian package build." >&2
+fi
 
-(cd "$output_dir" && sha256sum "TOST-${version}-linux-x64.tar.gz" "TOST-${version}-x86_64.AppImage" "tost-${version}-1-x86_64.pkg.tar.zst" "tost_${deb_version}_amd64.deb" > SHA256SUMS-linux.txt)
+(cd "$output_dir" && sha256sum * > SHA256SUMS-linux.txt 2>/dev/null || true)

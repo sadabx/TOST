@@ -4,6 +4,7 @@ using Trionine.TOST.Core.Steam;
 using Trionine.TOST.Core.GameManagement;
 using Trionine.TOST.Core.Configuration;
 using Trionine.TOST.Core.Downloads;
+using Trionine.TOST.Core.Updates;
 using System.IO.Compression;
 using System.Net;
 using System.Security.Cryptography;
@@ -28,7 +29,8 @@ var tests = new (string Name, Action Run)[]
     ("DepotDownloader locator detects tools in search paths", TestDepotDownloaderLocator),
     ("Depot key extractor reads keys from Lua and Steam config.vdf", TestDepotKeyExtractor),
     ("Game download planner creates multi-depot plan with sanitized dir", TestGameDownloadPlanner),
-    ("Game install status checks ACF StateFlags and game directories", TestGameInstallStatus)
+    ("Game install status checks ACF StateFlags and game directories", TestGameInstallStatus),
+    ("Linux release checker detects Linux tags and selects correct package assets", TestLinuxReleaseChecker)
 };
 
 var failures = 0;
@@ -418,6 +420,69 @@ static void TestGameInstallStatus()
 
     File.Delete(acf);
     True(!GameInstallStatus.IsGameInstalled(steam, game), "Game should not be detected as installed after ACF manifest is removed, even if game directory still exists.");
+}
+
+void TestLinuxReleaseChecker()
+{
+    // 1. Tag discrimination
+    True(TostReleaseChecker.IsLinuxRelease("v0.5.0L", "TOST Linux v0.5.0L"), "v0.5.0L should be Linux");
+    True(TostReleaseChecker.IsLinuxRelease("v0.5.0-L", "TOST Linux"), "v0.5.0-L should be Linux");
+    True(TostReleaseChecker.IsLinuxRelease("v0.5.0-linux", null), "v0.5.0-linux should be Linux");
+    True(!TostReleaseChecker.IsLinuxRelease("v2.0.9", "TOST v2.0.9"), "v2.0.9 should not be Linux release");
+    True(!TostReleaseChecker.IsLinuxRelease("v2.1.0", null), "v2.1.0 should not be Linux release");
+
+    // 2. Version parsing
+    True(TostReleaseChecker.TryParseVersion("v0.5.0L", out var v1) && v1 == new Version(0, 5, 0), "Parse v0.5.0L");
+    True(TostReleaseChecker.TryParseVersion("0.5.0-L", out var v2) && v2 == new Version(0, 5, 0), "Parse 0.5.0-L");
+    True(TostReleaseChecker.TryParseVersion("v0.5.1L", out var v3) && v3 == new Version(0, 5, 1), "Parse v0.5.1L");
+    True(v3 > v1, "v0.5.1L > v0.5.0L");
+
+    // 3. System kind detection
+    True(TostReleaseChecker.DetectSystemKind(null, false, false, "/path/AppImage") == LinuxPackageKind.AppImage, "Detect AppImage");
+    True(TostReleaseChecker.DetectSystemKind("/usr/bin/tost", false, false, null) == LinuxPackageKind.ArchPackage, "Detect Arch by path");
+    True(TostReleaseChecker.DetectSystemKind(null, true, false, null) == LinuxPackageKind.ArchPackage, "Detect Arch by flag");
+    True(TostReleaseChecker.DetectSystemKind(null, false, true, null) == LinuxPackageKind.DebianPackage, "Detect Debian");
+    True(TostReleaseChecker.DetectSystemKind(null, false, false, null) == LinuxPackageKind.Tarball, "Detect Tarball");
+
+    // 4. Asset selection
+    var rel = new GitHubRelease
+    {
+        TagName = "v0.5.1L",
+        Name = "TOST Linux v0.5.1L",
+        Assets =
+        {
+            new GitHubAsset { Name = "tost-0.5.1.L-1-x86_64.pkg.tar.zst", DownloadUrl = "http://pkg" },
+            new GitHubAsset { Name = "tost_0.5.1-L_amd64.deb", DownloadUrl = "http://deb" },
+            new GitHubAsset { Name = "TOST-0.5.1-L-x86_64.AppImage", DownloadUrl = "http://appimage" },
+            new GitHubAsset { Name = "TOST-0.5.1-L-linux-x64.tar.gz", DownloadUrl = "http://tar" }
+        }
+    };
+
+    var (archAsset, archKind) = TostReleaseChecker.SelectAsset(rel, LinuxPackageKind.ArchPackage);
+    True(archKind == LinuxPackageKind.ArchPackage && archAsset?.Name == "tost-0.5.1.L-1-x86_64.pkg.tar.zst", "Select Arch asset");
+
+    var (debAsset, debKind) = TostReleaseChecker.SelectAsset(rel, LinuxPackageKind.DebianPackage);
+    True(debKind == LinuxPackageKind.DebianPackage && debAsset?.Name == "tost_0.5.1-L_amd64.deb", "Select Debian asset");
+
+    var (appImgAsset, appImgKind) = TostReleaseChecker.SelectAsset(rel, LinuxPackageKind.AppImage);
+    True(appImgKind == LinuxPackageKind.AppImage && appImgAsset?.Name == "TOST-0.5.1-L-x86_64.AppImage", "Select AppImage asset");
+
+    var (tarAsset, tarKind) = TostReleaseChecker.SelectAsset(rel, LinuxPackageKind.Tarball);
+    True(tarKind == LinuxPackageKind.Tarball && tarAsset?.Name == "TOST-0.5.1-L-linux-x64.tar.gz", "Select Tarball asset");
+
+    // 5. Release scanning with Windows isolation
+    var releases = new List<GitHubRelease>
+    {
+        new GitHubRelease { TagName = "v0.5.1L", Name = "TOST Linux v0.5.1L", Assets = rel.Assets },
+        new GitHubRelease { TagName = "v0.5.0L", Name = "TOST Linux v0.5.0L" },
+        new GitHubRelease { TagName = "v2.0.9", Name = "TOST v2.0.9" } // Windows release
+    };
+
+    var updateFor050 = TostReleaseChecker.FindLatestLinuxUpdate(releases, new Version(0, 5, 0), LinuxPackageKind.ArchPackage);
+    True(updateFor050 != null && updateFor050.TagName == "v0.5.1L", "Update available for 0.5.0");
+
+    var updateFor051 = TostReleaseChecker.FindLatestLinuxUpdate(releases, new Version(0, 5, 1), LinuxPackageKind.ArchPackage);
+    True(updateFor051 == null, "No update when on latest 0.5.1");
 }
 
 static void True(bool condition, string message)
