@@ -742,7 +742,7 @@ button, input, select, textarea {
 
 .tost-comparison {
   width: 100%;
-  min-width: 880px;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 0.86rem;
 }

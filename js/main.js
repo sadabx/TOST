@@ -1,6 +1,6 @@
 const GITHUB_REPO = "sadabx/TOST";
-const TOST_RELEASE_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
-const TOST_RELEASE_PAGE = `https://github.com/${GITHUB_REPO}/releases/latest`;
+const TOST_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/releases`;
+const TOST_RELEASE_PAGE = `https://github.com/${GITHUB_REPO}/releases`;
 const WORKER_URL = "https://manifesthub-bridge.trionine.workers.dev/";
 
 // Debounce: ignore repeated tracking signals for the same asset within 30s
@@ -115,7 +115,7 @@ function verifyAssetUrl(url) {
   }
 }
 
-function updateRecommendation(platform, resolvedAssets) {
+function updateRecommendation(platform, resolvedAssets, versions) {
   const copy = document.querySelector("[data-recommendation-copy]");
   const link = document.querySelector("[data-recommended-download]");
   const label = document.querySelector("[data-recommended-label]");
@@ -131,14 +131,14 @@ function updateRecommendation(platform, resolvedAssets) {
   });
 
   if (platform === "windows") {
-    copy.textContent = "Recommended for your Windows device:";
+    copy.textContent = `Recommended for your Windows device (${versions.win || "Latest"}):`;
     label.textContent = "Download Windows Setup";
     link.href = resolvedAssets["win-setup"] || TOST_RELEASE_PAGE;
     return;
   }
 
   if (platform === "linux") {
-    copy.textContent = "Recommended for your Linux device:";
+    copy.textContent = `Recommended for your Linux device (${versions.linux || "Latest"}):`;
     label.textContent = "Download Linux AppImage";
     link.href = resolvedAssets.appimage || TOST_RELEASE_PAGE;
     return;
@@ -180,7 +180,7 @@ function attachDownloadTracking() {
   }
 }
 
-// ---- Release Loader ----
+// ---- Release Loader with Decoupled Windows & Linux Releases ----
 
 async function loadRelease() {
   const platform = await detectPlatform();
@@ -188,35 +188,60 @@ async function loadRelease() {
   const releaseLink = document.querySelector("[data-release-link]");
 
   try {
-    const response = await fetch(TOST_RELEASE_API, {
+    const response = await fetch(TOST_RELEASES_API, {
       headers: { Accept: "application/vnd.github+json" },
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const release = await response.json();
-    const assets = Array.isArray(release.assets) ? release.assets : [];
+    const releases = await response.json();
+    if (!Array.isArray(releases) || releases.length === 0) throw new Error("No releases found");
+
+    // Separate latest Linux release (*L) and latest Windows release (non-*L)
+    const linuxRelease = releases.find((r) => /L$/i.test(r.tag_name || "")) || releases[0];
+    const windowsRelease = releases.find((r) => !/L$/i.test(r.tag_name || "")) || releases[0];
+
     const resolved = {};
 
-    Object.entries(assetPatterns).forEach(([key, pattern]) => {
-      const asset = assets.find((candidate) => pattern.test(candidate.name));
-      if (asset?.browser_download_url && verifyAssetUrl(asset.browser_download_url)) {
-        resolved[key] = asset.browser_download_url;
+    // 1. Resolve Linux assets from linuxRelease
+    const linuxAssets = Array.isArray(linuxRelease.assets) ? linuxRelease.assets : [];
+    const linuxKeys = ["appimage", "linux-portable", "arch", "deb"];
+    linuxKeys.forEach((key) => {
+      const pattern = assetPatterns[key];
+      const match = linuxAssets.find((candidate) => pattern.test(candidate.name));
+      if (match?.browser_download_url && verifyAssetUrl(match.browser_download_url)) {
+        resolved[key] = match.browser_download_url;
         const link = document.querySelector(`[data-release-asset="${key}"]`);
-        if (link) link.href = asset.browser_download_url;
+        if (link) link.href = match.browser_download_url;
       }
     });
 
-    if (releaseLink && release.html_url) {
-      releaseLink.href = release.html_url;
-      releaseLink.textContent = release.tag_name || "Latest release";
+    // 2. Resolve Windows assets from windowsRelease
+    const windowsAssets = Array.isArray(windowsRelease.assets) ? windowsRelease.assets : [];
+    const windowsKeys = ["win-setup", "win-portable"];
+    windowsKeys.forEach((key) => {
+      const pattern = assetPatterns[key];
+      const match = windowsAssets.find((candidate) => pattern.test(candidate.name));
+      if (match?.browser_download_url && verifyAssetUrl(match.browser_download_url)) {
+        resolved[key] = match.browser_download_url;
+        const link = document.querySelector(`[data-release-asset="${key}"]`);
+        if (link) link.href = match.browser_download_url;
+      }
+    });
+
+    const winTag = windowsRelease?.tag_name || "v2.0.9";
+    const linTag = linuxRelease?.tag_name || "v0.5.0L";
+
+    if (releaseLink) {
+      releaseLink.href = TOST_RELEASE_PAGE;
+      releaseLink.textContent = `Windows ${winTag} · Linux ${linTag}`;
     }
 
     if (statusEl) statusEl.textContent = "Downloads verified from GitHub";
-    updateRecommendation(platform, resolved);
+    updateRecommendation(platform, resolved, { win: winTag, linux: linTag });
   } catch (error) {
     console.warn("Release fetch failed:", error);
     if (statusEl) statusEl.textContent = "Direct downloads on GitHub Releases";
-    updateRecommendation(platform, {});
+    updateRecommendation(platform, {}, {});
   }
 
   attachDownloadTracking();
