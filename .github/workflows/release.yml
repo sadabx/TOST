@@ -24,6 +24,8 @@ jobs:
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
+      is_linux: ${{ steps.release.outputs.is_linux }}
+      is_windows: ${{ steps.release.outputs.is_windows }}
     steps:
       - name: Resolve version
         id: release
@@ -32,13 +34,29 @@ jobs:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
-          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-]?[0-9A-Za-z.-]+)?$ ]]
+          tag="$RELEASE_TAG"
+          raw_version="${tag#v}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [[ "$tag" =~ (L|-linux|-L)$ ]]; then
+            echo "is_linux=true" >> "$GITHUB_OUTPUT"
+            echo "is_windows=false" >> "$GITHUB_OUTPUT"
+            if [[ "$raw_version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)L$ ]]; then
+              dotnet_version="${BASH_REMATCH[1]}-L"
+            else
+              dotnet_version="$raw_version"
+            fi
+            echo "version=$dotnet_version" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_linux=false" >> "$GITHUB_OUTPUT"
+            echo "is_windows=true" >> "$GITHUB_OUTPUT"
+            echo "version=$raw_version" >> "$GITHUB_OUTPUT"
+          fi
 
   windows:
     name: Build Windows release
     needs: metadata
+    if: needs.metadata.outputs.is_windows == 'true'
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +85,7 @@ jobs:
   linux:
     name: Build Linux release
     needs: metadata
+    if: needs.metadata.outputs.is_linux == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -107,6 +126,7 @@ jobs:
   publish:
     name: Publish GitHub Release
     needs: [metadata, windows, linux]
+    if: always() && !cancelled() && needs.metadata.result == 'success' && (needs.windows.result == 'success' || needs.windows.result == 'skipped') && (needs.linux.result == 'success' || needs.linux.result == 'skipped')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -150,6 +170,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
           VERSION: ${{ needs.metadata.outputs.version }}
+          IS_LINUX: ${{ needs.metadata.outputs.is_linux }}
         run: |
           set -euo pipefail
           mapfile -d '' assets < <(find release-assets -maxdepth 1 -type f -print0)
@@ -157,14 +178,20 @@ jobs:
 
           if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             release_flags=(--draft --verify-tag --notes-file release-notes.md)
-            if [[ "$VERSION" == *-* ]]; then
-              release_flags+=(--prerelease)
+            if [[ "$IS_LINUX" == "true" ]]; then
+              release_title="TOST Linux $RELEASE_TAG"
+              release_flags+=(--latest=false)
             else
-              release_flags+=(--latest)
+              release_title="TOST v$VERSION"
+              if [[ "$VERSION" == *-* ]]; then
+                release_flags+=(--prerelease)
+              else
+                release_flags+=(--latest)
+              fi
             fi
             gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "TOST v$VERSION" \
+              --title "$release_title" \
               "${release_flags[@]}"
           fi
 
